@@ -905,9 +905,9 @@ proc wall
 	ret 6
 endp wall
 
-; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
 ; output: none
-proc physics
+proc physics_dots
 	push bp
 	mov bp, sp
 	push ax
@@ -917,11 +917,11 @@ proc physics
 	push di
 	push si
 	
-	mov cx, [bp+8]
-	physics_dots:
+	mov cx, [bp+4]
+	physics_dots_loop:
 		push cx
 		
-		push [bp+12]
+		push [bp+8]
 		push cx
 		call array_access
 		pop bx
@@ -932,7 +932,7 @@ proc physics
 		mov di, ax
 		mov si, dx
 		
-		push [bp+10]
+		push [bp+6]
 		push cx
 		call array_access
 		pop bx
@@ -952,7 +952,7 @@ proc physics
 		; gravity
 		add dx, 1
 		
-		push [bp+14]
+		push [bp+10]
 		push cx
 		push ax
 		push dx
@@ -972,10 +972,40 @@ proc physics
 		mov [bx], ax
 		mov [bx+2], dx
 		pop cx
-	loop physics_dots
+	loop physics_dots_loop
 	
-	mov cx, [bp+4]
-	physics_sticks:
+	pop si
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop bp
+	ret 8
+endp physics_dots
+
+; input: 
+; output: none
+proc physics_sticks
+	push bp
+	mov bp, sp
+	
+	; wall dots start in memory, sticks amount
+	
+	; ------------
+	; ax - stick length
+	; bx - stick start in memory
+	; cx - stick element number in array
+	; di - dx
+	; si - dy
+	; ------------
+	
+	mov cx, [bp+8]
+	physics_sticks_loop:
+		; get dot's wall array start in memory
+		; get both dot's x and y location
+		; calculate dx and dy
+		
 		; dx = np.abs(stick.pointA.position[0] - stick.pointB.position[0])
 		; dy = np.abs(stick.pointA.position[1] - stick.pointB.position[1])
 		; distance = math.sqrt(dx ** 2 + dy ** 2)
@@ -994,7 +1024,31 @@ proc physics
 				; offsetY *= 2
 			; if not stick.pointB.locked:
 				; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
-	loop physics_sticks
+	loop physics_sticks_loop
+	
+	pop bp
+	ret
+endp physics_sticks
+
+; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; output: none
+proc physics
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+	push si
+	
+	push [bp+14]
+	push [bp+12]
+	push [bp+10]
+	push [bp+8]
+	call physics_dots
+	
+	cal physics_sticks
 	
 	pop si
 	pop di
@@ -1423,10 +1477,9 @@ start:
 exit:
 	mov ax, 4c00h
 	int 21h
-END start ; split @physics into physics_dots and physics_sticks
+END start
 
 ; todo:
-; split @physics into physics_dots and physics_sticks
 ; write physics_sticks
 ; make variable for max amount of dots and stick
 ; make dots lockable and fix selection
