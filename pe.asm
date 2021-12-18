@@ -1424,3 +1424,12 @@ exit:
 	mov ax, 4c00h
 	int 21h
 END start ; split @physics into physics_dots and physics_sticks
+
+; todo:
+; split @physics into physics_dots and physics_sticks
+; write physics_sticks
+; make variable for max amount of dots and stick
+; make dots lockable and fix selection
+; make starting screen
+; make instructions
+; make color palette variable for dots
