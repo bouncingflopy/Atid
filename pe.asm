@@ -984,27 +984,87 @@ proc physics_dots
 	ret 8
 endp physics_dots
 
+; input: dx, dy
+; output: distance
+proc distance
+	push bp
+	mov bp, sp
+	push ax
+	push di
+	push si
+	
+	; mov di, di*di
+	; mov si, si*si
+	; mov ax, di+si
+	; mov ax, sqrt ax
+	
+	pop si
+	pop di
+	pop ax
+	pop bp
+	ret 4
+endp distance
+
 ; input: 
 ; output: none
 proc physics_sticks
 	push bp
 	mov bp, sp
 	
-	; wall dots start in memory, sticks amount
+	; sticks start in memory, wall dots start in memory, sticks amount
 	
-	; ------------
-	; ax - stick length
-	; bx - stick start in memory
-	; cx - stick element number in array
-	; di - dx
-	; si - dy
-	; ------------
-	
-	mov cx, [bp+8]
-	physics_sticks_loop:
-		; get dot's wall array start in memory
+	mov cx, [bp+4]
+	physics_sticks_loop:		
 		; get both dot's x and y location
+			mov bx, [bp+8]
+			push bx
+			push cx
+			call array_access
+			pop bx
+			mov di, [bx]
+			mov si, [bx+2]
+			
+			mov bx, [bp+6]
+			push bx
+			push di
+			call array_access
+			pop di
+			
+			push bx
+			push si
+			call array_access
+			pop si
+		
 		; calculate dx and dy
+			; dx
+			mov ax, [di]
+			cmp ax, [si]
+			jl physics_sticks_dx
+				sub ax, [si]
+				jmp physics_sticks_dx_after
+			physics_sticks_dx:
+				mov ax, [si]
+				sub ax, [di]
+			physics_sticks_dx_after:
+			
+			; dy
+			mov dx, [di+2]
+			cmp dx, [si+2]
+			jl physics_sticks_dy
+				sub dx, [si+2]
+				jmp physics_sticks_dy_after
+			physics_sticks_dy:
+				mov dx, [si+2]
+				sub dx, [di+2]
+			physics_sticks_dy_after:
+			
+			mov di, ax
+			mov si, dx
+		
+		push ax
+		push dx
+		call distance
+		pop ax
 		
 		; dx = np.abs(stick.pointA.position[0] - stick.pointB.position[0])
 		; dy = np.abs(stick.pointA.position[1] - stick.pointB.position[1])
@@ -1048,7 +1108,7 @@ proc physics
 	push [bp+8]
 	call physics_dots
 	
-	cal physics_sticks
+	call physics_sticks
 	
 	pop si
 	pop di
