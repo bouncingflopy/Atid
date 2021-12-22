@@ -16,12 +16,15 @@ stick_amount dw 0
 stick_size dw 1
 stick_color dw 6
 sticks dw 100h dup (?, ?, ?), 0
+sticks_length dw 100h dup (?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
 mode dw 0
 selected dw ?, ?
 left dw 0
 left_prev dw 0
+
+fpu dd ?
 
 CODESEG
 
@@ -984,39 +987,110 @@ proc physics_dots
 	ret 8
 endp physics_dots
 
-; input: dx, dy
-; output: distance
-proc distance
+; input: 16 bit padding, number (16 bit)
+; output: number squared (32 bit)
+proc msquare
 	push bp
 	mov bp, sp
 	push ax
+	push cx
+	push dx
+	
+	mov cx, [bp+4]
+	mov ax, cx
+	mul cx
+	shl edx, 16
+	mov dx, ax
+	mov [bp+4], edx
+	
+	pop dx
+	pop cx
+	pop ax
+	pop bp
+	ret
+endp msquare
+
+; input: fpu in memory, number (32 bit)
+; output: square root of number (16 bit)
+proc msqrt
+	push bp
+	mov bp, sp
+	push eax	
 	push di
-	push si
 	
-	; mov di, di*di
-	; mov si, si*si
-	; mov ax, di+si
-	; mov ax, sqrt ax
+	mov eax, [bp+4]
+	mov di, [bp+6]
 	
-	pop si
+	mov [di], eax
+	fild [di]
+	fsqrt
+	fstp [di]
+	
+	mov [bp+8], [di]
+	
 	pop di
 	pop ax
 	pop bp
 	ret 4
+endp msqrt
+
+; input: fpu in memory, dx, dy
+; output: distance
+proc distance
+	push bp
+	mov bp, sp
+	push eax
+	push edx
+	push di
+	push si
+	
+	xor eax, eax
+	xor edx, edx
+	
+	mov di, [bp+4]
+	mov si, [bp+6]
+	
+	; mov di, di*di
+	push di
+	push di
+	call msquare
+	pop eax
+	
+	; mov si, si*si
+	push si
+	push si
+	call msquare
+	pop edx
+	
+	; mov ax, di+si
+	add eax, edx
+	
+	; mov ax, sqrt ax
+	push [bp+8]
+	push eax
+	call msqrt
+	pop ax
+	
+	mov [bp+8], ax
+	
+	pop si
+	pop di
+	pop edx
+	pop eax
+	pop bp
+	ret 6
 endp distance
 
-; input: 
+; input: fpu in memory, sticks start in memory, stick amount, dots start in memory, stick length start in memory
 ; output: none
-proc physics_sticks
+proc sticks_length_init
 	push bp
 	mov bp, sp
 	
-	; sticks start in memory, wall dots start in memory, sticks amount
-	
-	mov cx, [bp+4]
-	physics_sticks_loop:		
+	mov cx, [bp+8]
+	sticks_length_init_loop:		
 		; get both dot's x and y location
-			mov bx, [bp+8]
+			mov bx, [bp+10]
 			push bx
 			push cx
 			call array_access
@@ -1025,6 +1099,80 @@ proc physics_sticks
 			mov si, [bx+2]
 			
 			mov bx, [bp+6]
+			push bx
+			push di
+			call array_access
+			pop di
+			
+			push bx
+			push si
+			call array_access
+			pop si
+		
+		; calculate dx and dy
+			; dx
+			mov ax, [di]
+			cmp ax, [si]
+			jl sticks_length_init_dx
+				sub ax, [si]
+				jmp sticks_length_init_dx_after
+			sticks_length_init_dx:
+				mov ax, [si]
+				sub ax, [di]
+			sticks_length_init_dx_after:
+			
+			; dy
+			mov dx, [di+2]
+			cmp dx, [si+2]
+			jl sticks_length_init_dy
+				sub dx, [si+2]
+				jmp sticks_length_init_dy_after
+			sticks_length_init_dy:
+				mov dx, [si+2]
+				sub dx, [di+2]
+			sticks_length_init_dy_after:
+			
+			mov di, ax
+			mov si, dx
+		
+		push [bp+10]
+		push ax
+		push dx
+		call distance
+		pop ax
+		
+		push [bp+4]
+		push cx
+		call array_access
+		pop bx
+		mov [bx], ax
+		
+	loop stick_length_init_loop
+	
+	pop bp
+	ret 10
+endp sticks_length_init
+
+; input: #$#
+; output: none
+proc physics_sticks
+	push bp
+	mov bp, sp
+	
+	; fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
+	
+	mov cx, [bp+4]
+	physics_sticks_loop:		
+		; get both dot's x and y location
+			mov bx, [bp+6]
+			push bx
+			push cx
+			call array_access
+			pop bx
+			mov di, [bx]
+			mov si, [bx+2]
+			
+			mov bx, [bp+10]
 			push bx
 			push di
 			call array_access
@@ -1061,36 +1209,45 @@ proc physics_sticks
 			mov di, ax
 			mov si, dx
 		
+		push [bp+12]
 		push ax
 		push dx
 		call distance
 		pop ax
 		
-		; dx = np.abs(stick.pointA.position[0] - stick.pointB.position[0])
-		; dy = np.abs(stick.pointA.position[1] - stick.pointB.position[1])
-		; distance = math.sqrt(dx ** 2 + dy ** 2)
+		push [bp+8]
+		push cx
+		call array_access
+		pop bx
+		mov dx, [bx]
+		
 		; difference = stick.length - distance
-		; if distance != 0:
-			; percent = difference / distance / 2
-			; offsetX = dx * percent
-			; offsetY = dy * percent
-			; if not stick.pointA.locked:
-				; if stick.pointB.locked:
-					; offsetX *= 2
-					; offsetY *= 2
-				; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
-			; else:
+		sub dx, ax
+		cmp dx, 0
+		je physics_sticks_dont_change
+
+		; percent = difference / distance / 2
+		; offsetX = dx * percent
+		; offsetY = dy * percent
+		; if not stick.pointA.locked:
+			; if stick.pointB.locked:
 				; offsetX *= 2
 				; offsetY *= 2
-			; if not stick.pointB.locked:
-				; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
+			; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
+		; else:
+			; offsetX *= 2
+			; offsetY *= 2
+		; if not stick.pointB.locked:
+			; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
+		
+		physics_sticks_dont_change:
 	loop physics_sticks_loop
 	
 	pop bp
 	ret
 endp physics_sticks
 
-; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; input: fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
 	push bp
@@ -1108,6 +1265,7 @@ proc physics
 	push [bp+8]
 	call physics_dots
 	
+	push [bp+16]
 	call physics_sticks
 	
 	pop si
@@ -1117,7 +1275,7 @@ proc physics
 	pop bx
 	pop ax
 	pop bp
-	ret 12
+	ret 14
 endp physics
 
 ; input: dots start in memory, selected start in memory, new dot's number in array
@@ -1484,6 +1642,19 @@ start:
 	push bx
 	call copy_dots
 	
+	; calculate stick lengths
+	mov bx, fpu
+	push bx
+	mov bx, offset sticks
+	push bx
+	mov bx, offset stick_amount
+	push [bx]
+	mov bx, offset dots
+	push bx
+	mov bx, offset sticks_length
+	push bx
+	call sticks_length_init
+	
 	; simulation loop
 	simulation:
 		; get mouse input
@@ -1493,6 +1664,8 @@ start:
 		and ax, 1b
 		
 		; simulation
+		mov bx, offset fpu
+		push bx
 		mov bx, offset dots_wall_prev
 		push bx
 		mov bx, offset dots
@@ -1546,3 +1719,6 @@ END start
 ; make starting screen
 ; make instructions
 ; make color palette variable for dots
+; render: first delete, then display
+; render: for each none moving stick, if part is deleted, redisplay
+; add decimals
