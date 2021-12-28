@@ -16,7 +16,7 @@ stick_amount dw 0
 stick_size dw 1
 stick_color dw 6
 sticks dw 100h dup (?, ?, ?), 0
-sticks_length dw 100h dup (?), 0
+sticks_length dw 100h dup (?, ?, ?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
 mode dw 0
@@ -1011,7 +1011,7 @@ proc msquare
 endp msquare
 
 ; input: fpu in memory, number (32 bit)
-; output: square root of number (16 bit)
+; output: square root of number (32 bit)
 proc msqrt
 	push bp
 	mov bp, sp
@@ -1026,16 +1026,16 @@ proc msqrt
 	fsqrt
 	fstp [di]
 	
-	mov [bp+8], [di]
+	mov [bp+6], [di]
 	
 	pop di
 	pop ax
 	pop bp
-	ret 4
+	ret 2
 endp msqrt
 
 ; input: fpu in memory, dx, dy
-; output: distance
+; output: distance (32 bit)
 proc distance
 	push bp
 	mov bp, sp
@@ -1069,16 +1069,16 @@ proc distance
 	push [bp+8]
 	push eax
 	call msqrt
-	pop ax
+	pop eax
 	
-	mov [bp+8], ax
+	mov [bp+6], eax
 	
 	pop si
 	pop di
 	pop edx
 	pop eax
 	pop bp
-	ret 6
+	ret 4
 endp distance
 
 ; input: fpu in memory, sticks start in memory, stick amount, dots start in memory, stick length start in memory
@@ -1139,13 +1139,13 @@ proc sticks_length_init
 		push ax
 		push dx
 		call distance
-		pop ax
+		pop eax
 		
 		push [bp+4]
 		push cx
 		call array_access
 		pop bx
-		mov [bx], ax
+		mov [bx], eax
 		
 	loop stick_length_init_loop
 	
@@ -1206,29 +1206,66 @@ proc physics_sticks
 				sub dx, [di+2]
 			physics_sticks_dy_after:
 			
-			mov di, ax
-			mov si, dx
+			mov ax, di
+			mov dx, si
 		
-		push [bp+12]
+		; set bx to fpu in memory
+		mov bx, [bp+12]
+		
+		push bx
 		push ax
 		push dx
 		call distance
-		pop ax
+		pop eax
 		
+		; get original stick length
 		push [bp+8]
 		push cx
 		call array_access
 		pop bx
-		mov dx, [bx]
+		mov edx, [bx]
 		
 		; difference = stick.length - distance
-		sub dx, ax
-		cmp dx, 0
+		sub edx, eax
+		cmp edx, 0
 		je physics_sticks_dont_change
-
+		
 		; percent = difference / distance / 2
+		mov [bx], edx
+		fld [bx]
+		mov [bx], eax
+		fld [bx]
+		fdiv ST(1), ST(0)
+		mov [bx], 2
+		fild [bx]
+		fdiv ST(1), ST(0)
+		fstp [bx]
+		mov edx, [bx]
+		
 		; offsetX = dx * percent
+		xor eax, eax
+		mov ax, di
+		mov [bx], eax
+		fild [bx]
+		mov [bx], edx
+		fld [bx]
+		fmul
+		fstp [bx]
+		xor ecx, ecx
+		mov ecx, [bx]
+		
 		; offsetY = dy * percent
+		xor eax, eax
+		mov ax, si
+		mov [bx], eax
+		fild [bx]
+		mov [bx], edx
+		fld [bx]
+		fmul
+		fstp [bx]
+		xor ecx, ecx
+		mov edx, [bx]
+		
 		; if not stick.pointA.locked:
 			; if stick.pointB.locked:
 				; offsetX *= 2
