@@ -1153,16 +1153,102 @@ proc sticks_length_init
 	ret 10
 endp sticks_length_init
 
-; input: #$#
+; input: fpu in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
+; output: none
+proc change
+	push bp
+	mov bp, sp
+	push eax
+	push bx
+	push edx
+	push di
+	push si
+	
+	; final = position
+		; get first point location in memory
+		push [bp+16]
+		push [bp+14]
+		call array_access
+		pop bx
+		
+		mov di, [bx]
+		mov si, [bx+2]
+	
+	; floatize positions
+		mov bx, [bp+18]
+		mov eax, di
+		mov edx, si
+	
+	; if final[0] > other[0]:
+		; final[0] += offsetX
+	; else:
+		; final[0] -= offsetX
+	; if final[1] > other[1]:
+		; final[1] += offsetY
+	; else:
+		; final[1] -= offsetY
+	
+	; get other point location in memory
+	push [bp+16]
+	push [bp+12]
+	call array_access
+	pop bx
+	
+	cmp di, [bx]
+	jle change_x_smaller
+	add eax, [bp+8]
+	jmp change_x_after
+	change_x_smaller:
+	sub eax, [bp+8]
+	change_x_after:
+	
+	cmp si, [bx+2]
+	jle change_y_smaller
+	add edx, [bp+4]
+	jmp change_y_after
+	change_y_smaller:
+	sub edx, [bp+4]
+	change_y_after:
+	
+	; intize positions
+		mov bx, [bp+18]
+		mov di, eax
+		mov si, edx
+	
+	; return final
+	push [bp+12]
+	push [bp+10]
+	call array_access
+	pop bx
+	
+	mov [bx], di
+	mov [bx+2], si
+	
+	pop si
+	pop di
+	pop edx
+	pop bx
+	pop eax
+	pop bp
+	ret 16
+endp change
+
+; input: fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
 ; output: none
 proc physics_sticks
 	push bp
 	mov bp, sp
-	
-	; fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
+	push eax
+	push bx
+	push ecx
+	push edx
+	push di
+	push si
 	
 	mov cx, [bp+4]
-	physics_sticks_loop:		
+	physics_sticks_loop:
+		push cx
+		
 		; get both dot's x and y location
 			mov bx, [bp+6]
 			push bx
@@ -1266,22 +1352,60 @@ proc physics_sticks
 		xor ecx, ecx
 		mov edx, [bx]
 		
-		; if not stick.pointA.locked:
-			; if stick.pointB.locked:
+		; -------------------------------
+		; implements locking dots:
+			; if not stick.pointA.locked:
+				; if stick.pointB.locked:
+					; offsetX *= 2
+					; offsetY *= 2
+				; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
+			; else:
 				; offsetX *= 2
 				; offsetY *= 2
-			; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
-		; else:
-			; offsetX *= 2
-			; offsetY *= 2
-		; if not stick.pointB.locked:
-			; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
+			; if not stick.pointB.locked:
+				; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
+		; -------------------------------
+		
+		; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
+		push [bp+12]
+		push [bp+10]
+			mov bx, [bp+6]
+			push bx
+			push cx
+			call array_access
+			pop bx
+		push [bx]
+		push [bx+2]
+		push ecx
+		push edx
+		call change
+		
+		; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
+		push [bp+12]
+		push [bp+10]
+			mov bx, [bp+6]
+			push bx
+			push cx
+			call array_access
+			pop bx
+		push [bx+2]
+		push [bx]
+		push ecx
+		push edx
+		call change
 		
 		physics_sticks_dont_change:
+		pop cx
 	loop physics_sticks_loop
 	
+	pop si
+	pop di
+	pop edx
+	pop ecx
+	pop bx
+	pop eax
 	pop bp
-	ret
+	ret 10
 endp physics_sticks
 
 ; input: fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
