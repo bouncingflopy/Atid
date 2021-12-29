@@ -1174,11 +1174,6 @@ proc change
 		mov di, [bx]
 		mov si, [bx+2]
 	
-	; floatize positions
-		mov bx, [bp+18]
-		mov eax, di
-		mov edx, si
-	
 	; if final[0] > other[0]:
 		; final[0] += offsetX
 	; else:
@@ -1193,6 +1188,23 @@ proc change
 	push [bp+12]
 	call array_access
 	pop bx
+	
+	; round offsets
+		mov bx, [bp+18]
+		
+		mov eax, [bp+8]
+		mov [bx], eax
+		fld [bx]
+		frndint
+		fstp [bx]
+		mov eax, [bx]
+		
+		mov edx, [bp+4]
+		mov [bx], edx
+		fld [bx]
+		frndint
+		fstp [bx]
+		mov edx, [bx]
 	
 	cmp di, [bx]
 	jle change_x_smaller
@@ -1209,11 +1221,6 @@ proc change
 	change_y_smaller:
 	sub edx, [bp+4]
 	change_y_after:
-	
-	; intize positions
-		mov bx, [bp+18]
-		mov di, eax
-		mov si, edx
 	
 	; return final
 	push [bp+12]
@@ -1396,8 +1403,12 @@ proc physics_sticks
 		
 		physics_sticks_dont_change:
 		pop cx
-	loop physics_sticks_loop
+	dec cx
+	cmp cx, 0
+	je physics_sticks_end
+	jmp physics_sticks_loop
 	
+	physics_sticks_end:
 	pop si
 	pop di
 	pop edx
@@ -1459,7 +1470,8 @@ proc selection
 	push di
 	call array_access
 	pop di
-	mov [di+4], 13
+	mov ax, 13
+	mov [di+4], ax
 	
 	; cycle middle dot
 	selection_middle:
@@ -1474,7 +1486,8 @@ proc selection
 	push ax
 	call array_access
 	pop bx
-	mov [bx+4], 100
+	mov ax, 100
+	mov [bx+4], ax
 	
 	pop di
 	pop bx
@@ -1511,7 +1524,8 @@ proc selected_manage
 		push di
 		call array_access
 		pop bx
-		mov [bx+4], 40
+		mov ax, 40
+		mov [bx+4], ax
 		jmp selected_manage_exit
 	
 	selected_manage_add_stick:
@@ -1660,7 +1674,8 @@ start:
 	sandbox:
 		; check mode
 		mov bx, offset mode
-		cmp [bx], 0
+		mov ax, 0
+		cmp [bx], ax
 		je no_sandbox_after
 		jmp sandbox_after
 		no_sandbox_after:
@@ -1804,7 +1819,7 @@ start:
 	call copy_dots
 	
 	; calculate stick lengths
-	mov bx, fpu
+	mov bx, offset fpu
 	push bx
 	mov bx, offset sticks
 	push bx
