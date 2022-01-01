@@ -5,10 +5,10 @@ STACK 100h
 DATASEG
 
 ; the dots array is sorted in the following order: x position, y position, color
-dot_amount dw 0
+dot_amount dw 2
 dot_size dw 1
 dot_color dw 13
-dots dw 100h dup (?, ?, ?), 321
+dots dw 100, 100, 13, 100, 120, 13, 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
 
@@ -20,7 +20,7 @@ sticks dw 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
-mode dw 0
+mode dw 1
 selected dw ?, ?
 left dw 0
 left_prev dw 0
@@ -1088,9 +1088,18 @@ endp distance
 proc sticks_length_init
 	push bp
 	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+	push si
 	
 	mov cx, [bp+8]
-	sticks_length_init_loop:		
+	sticks_length_init_loop:
+		cmp cx, 0
+		je sticks_length_init_loop_exit
+		
 		; get both dot's x and y location
 			mov bx, [bp+10]
 			push bx
@@ -1148,9 +1157,17 @@ proc sticks_length_init
 		call array_access
 		pop bx
 		mov [bx], eax
-		
-	loop sticks_length_init_loop
 	
+	dec cx
+	jmp sticks_length_init_loop
+	
+	sticks_length_init_loop_exit:
+	pop si
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
 	pop bp
 	ret 10
 endp sticks_length_init
@@ -1421,17 +1438,11 @@ proc physics_sticks
 	ret 10
 endp physics_sticks
 
-; input: fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; input: stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
 	
 	push [word ptr bp+14]
 	push [word ptr bp+12]
@@ -1440,16 +1451,14 @@ proc physics
 	call physics_dots
 	
 	push [word ptr bp+16]
+	push [word ptr bp+12]
+	push [word ptr bp+18]
+	push [word ptr bp+6]
+	push [word ptr bp+4]
 	call physics_sticks
-	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
+
 	pop bp
-	ret 14
+	ret 16
 endp physics
 
 ; input: dots start in memory, selected start in memory, new dot's number in array
@@ -1856,6 +1865,8 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
+		mov bx, offset sticks_length
+		push bx
 		call physics
 		
 		; render
@@ -1891,7 +1902,6 @@ exit:
 END start
 
 ; todo:
-; write physics_sticks
 ; make variable for max amount of dots and stick
 ; make dots lockable and fix selection
 ; make starting screen
