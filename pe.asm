@@ -816,7 +816,7 @@ proc render
 	pop cx
 	pop bx
 	pop bp
-	ret 14
+	ret 12
 endp render
 
 ; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
@@ -1273,6 +1273,11 @@ proc physics_sticks
 	
 	mov cx, [bp+4]
 	physics_sticks_loop:
+		cmp cx, 0
+		jne physics_sticks_loop_continue
+		jmp physics_sticks_end
+		physics_sticks_loop_continue:
+		
 		push cx
 		
 		; get both dot's x and y location
@@ -1422,8 +1427,8 @@ proc physics_sticks
 		
 		physics_sticks_dont_change:
 		pop cx
+	
 	dec cx
-	cmp cx, 0
 	je physics_sticks_end
 	jmp physics_sticks_loop
 	
@@ -1865,7 +1870,7 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
-		mov bx, offset sticks_length
+		mov bx, [sticks_length]
 		push bx
 		call physics
 		
