@@ -5,22 +5,22 @@ STACK 100h
 DATASEG
 
 ; the dots array is sorted in the following order: x position, y position, color
-dot_amount dw 0
+dot_amount dw 2
 dot_size dw 1
 dot_color dw 13
-dots dw 100h dup (?, ?, ?), 321
+dots dw 100, 100, 13, 150, 100, 13, 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
 
 ; the sticks array is sorted in the following order: first dot, second dot, color
-stick_amount dw 0
+stick_amount dw 1
 stick_size dw 1
 stick_color dw 6
-sticks dw 100h dup (?, ?, ?), 0
+sticks dw 1, 2, 6, 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
-mode dw 0
+mode dw 1
 selected dw ?, ?
 left dw 0
 left_prev dw 0
