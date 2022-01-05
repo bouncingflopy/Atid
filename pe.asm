@@ -5,10 +5,10 @@ STACK 100h
 DATASEG
 
 ; the dots array is sorted in the following order: x position, y position, color
-dot_amount dw 2
+dot_amount dw 0
 dot_size dw 1
 dot_color dw 13
-dots dw 100, 100, 13, 100, 120, 13, 100h dup (?, ?, ?), 321
+dots dw 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
 
@@ -20,7 +20,7 @@ sticks dw 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
-mode dw 1
+mode dw 0
 selected dw ?, ?
 left dw 0
 left_prev dw 0
@@ -816,7 +816,7 @@ proc render
 	pop cx
 	pop bx
 	pop bp
-	ret 12
+	ret 14
 endp render
 
 ; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
@@ -1674,6 +1674,8 @@ start:
 	; initial render
 		mov bx, offset dots_wall_prev
 		push bx
+		mov bx, offset dots_prev
+		push bx
 		mov bx, offset dots
 		push bx
 		mov bx, [dot_amount]
@@ -1856,6 +1858,8 @@ start:
 		and ax, 1b
 		
 		; simulation
+		mov bx, [sticks_length]
+		push bx
 		mov bx, offset fpu
 		push bx
 		mov bx, offset dots_wall_prev
@@ -1869,8 +1873,6 @@ start:
 		mov bx, offset sticks
 		push bx
 		mov bx, [stick_amount]
-		push bx
-		mov bx, [sticks_length]
 		push bx
 		call physics
 		
@@ -1915,3 +1917,4 @@ END start
 ; render: first delete, then display
 ; render: for each none moving stick, if part is deleted, redisplay
 ; add decimals
+; change screen resolution
