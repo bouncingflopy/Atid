@@ -5,22 +5,22 @@ STACK 100h
 DATASEG
 
 ; the dots array is sorted in the following order: x position, y position, color
-dot_amount dw 2
+dot_amount dw 0
 dot_size dw 1
 dot_color dw 13
-dots dw 100, 100, 13, 150, 100, 13, 100h dup (?, ?, ?), 321
+dots dw 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
 
 ; the sticks array is sorted in the following order: first dot, second dot, color
-stick_amount dw 1
+stick_amount dw 0
 stick_size dw 1
 stick_color dw 6
-sticks dw 1, 2, 6, 100h dup (?, ?, ?), 0
+sticks dw 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
-mode dw 1
+mode dw 0
 selected dw ?, ?
 left dw 0
 left_prev dw 0
@@ -995,7 +995,7 @@ proc msquare
 	mov bp, sp
 	push ax
 	push cx
-	push dx
+	push edx
 	
 	mov cx, [bp+4]
 	mov ax, cx
@@ -1004,7 +1004,7 @@ proc msquare
 	mov dx, ax
 	mov [bp+4], edx
 	
-	pop dx
+	pop edx
 	pop cx
 	pop ax
 	pop bp
@@ -1020,7 +1020,7 @@ proc msqrt
 	push di
 	
 	mov eax, [bp+4]
-	mov di, [bp+6]
+	mov di, [bp+8]
 	
 	mov [di], eax
 	fild [dword ptr di]
@@ -1031,7 +1031,7 @@ proc msqrt
 	mov [bp+6], eax
 	
 	pop di
-	pop ax
+	pop eax
 	pop bp
 	ret 2
 endp msqrt
@@ -1080,7 +1080,7 @@ proc distance
 	pop edx
 	pop eax
 	pop bp
-	ret 4
+	ret 2
 endp distance
 
 ; input: fpu in memory, sticks start in memory, stick amount, dots start in memory, stick length start in memory
@@ -1088,7 +1088,7 @@ endp distance
 proc sticks_length_init
 	push bp
 	mov bp, sp
-	push ax
+	push eax
 	push bx
 	push cx
 	push dx
@@ -1142,11 +1142,8 @@ proc sticks_length_init
 				mov dx, [si+2]
 				sub dx, [di+2]
 			sticks_length_init_dy_after:
-			
-			mov di, ax
-			mov si, dx
 		
-		push [word ptr bp+10]
+		push [word ptr bp+12]
 		push ax
 		push dx
 		call distance
@@ -1167,7 +1164,7 @@ proc sticks_length_init
 	pop dx
 	pop cx
 	pop bx
-	pop ax
+	pop eax
 	pop bp
 	ret 10
 endp sticks_length_init
