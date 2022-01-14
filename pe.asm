@@ -7,22 +7,22 @@ DATASEG
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 ; the dots array is sorted in the following order: x position, y position, color
-dot_amount dw 2
+dot_amount dw 0
 dot_size dw 1
 dot_color dw 13
-dots dw 100, 100, 13, 100, 150, 13, 100h dup (?, ?, ?), 321
+dots dw 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
 
 ; the sticks array is sorted in the following order: first dot, second dot, color
-stick_amount dw 1
+stick_amount dw 0
 stick_size dw 1
 stick_color dw 6
-sticks dw 1, 2, 6, 100h dup (?, ?, ?), 0
+sticks dw 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
-mode dw 1
+mode dw 0
 selected dw ?, ?
 left dw 0
 left_prev dw 0
@@ -1203,12 +1203,6 @@ proc change
 	; else:
 		; final[1] -= offsetY
 	
-	; get other point location in memory
-	push [word ptr bp+16]
-	push [word ptr bp+12]
-	call array_access
-	pop bx
-	
 	; round offsets
 		mov bx, [bp+18]
 		
@@ -1216,35 +1210,41 @@ proc change
 		mov [bx], eax
 		fld [dword ptr bx]
 		frndint
-		fstp [dword ptr bx]
+		fistp [dword ptr bx]
 		mov eax, [bx]
 		
 		mov edx, [bp+4]
 		mov [bx], edx
 		fld [dword ptr bx]
 		frndint
-		fstp [dword ptr bx]
+		fistp [dword ptr bx]
 		mov edx, [bx]
+	
+	; get other point location in memory
+	push [word ptr bp+16]
+	push [word ptr bp+12]
+	call array_access
+	pop bx
 	
 	cmp di, [bx]
 	jle change_x_smaller
-	add eax, [bp+8]
+	add di, ax
 	jmp change_x_after
 	change_x_smaller:
-	sub eax, [bp+8]
+	sub di, ax
 	change_x_after:
 	
 	cmp si, [bx+2]
 	jle change_y_smaller
-	add edx, [bp+4]
+	add si, dx
 	jmp change_y_after
 	change_y_smaller:
-	sub edx, [bp+4]
+	sub si, dx
 	change_y_after:
 	
 	; return final
-	push [word ptr bp+12]
-	push [word ptr bp+10]
+	push [word ptr bp+16]
+	push [word ptr bp+14]
 	call array_access
 	pop bx
 	
@@ -1324,9 +1324,9 @@ proc physics_sticks
 				sub dx, [di+2]
 			physics_sticks_dy_after:
 			
-			mov ax, di
-			mov dx, si
-		
+			mov di, ax
+			mov si, dx
+			
 		; set bx to fpu in memory
 		mov bx, [bp+12]
 		
@@ -1343,8 +1343,17 @@ proc physics_sticks
 		pop bx
 		mov edx, [bx]
 		
+		; set bx to fpu in memory
+		mov bx, [bp+12]
+		
 		; difference = stick.length - distance
-		sub edx, eax
+		mov [bx], edx
+		fld [dword ptr bx]
+		mov [bx], eax
+		fld [dword ptr bx]
+		fsub
+		fstp [dword ptr bx]
+		mov edx, [bx]
 		cmp edx, 0
 		je physics_sticks_dont_change
 		
@@ -1353,13 +1362,14 @@ proc physics_sticks
 		fld [dword ptr bx]
 		mov [bx], eax
 		fld [dword ptr bx]
-		fdiv ST(1), ST(0)
-		mov [dword bx], 2
+		fdiv
+		mov [dword ptr bx], 2
 		fild [dword ptr bx]
-		fdiv ST(1), ST(0)
+		fdiv
 		fstp [dword ptr bx]
 		mov edx, [bx]
 		
+		push cx
 		; offsetX = dx * percent
 		xor eax, eax
 		mov ax, di
@@ -1369,7 +1379,6 @@ proc physics_sticks
 		fld [dword ptr bx]
 		fmul
 		fstp [dword ptr bx]
-		xor ecx, ecx
 		mov ecx, [bx]
 		
 		; offsetY = dy * percent
@@ -1381,8 +1390,10 @@ proc physics_sticks
 		fld [dword ptr bx]
 		fmul
 		fstp [dword ptr bx]
-		xor ecx, ecx
 		mov edx, [bx]
+		
+		mov eax, ecx
+		pop cx
 		
 		; -------------------------------
 		; implements locking dots:
@@ -1408,7 +1419,7 @@ proc physics_sticks
 			pop bx
 		push [word ptr bx]
 		push [word ptr bx+2]
-		push ecx
+		push eax
 		push edx
 		call change
 		
@@ -1422,7 +1433,7 @@ proc physics_sticks
 			pop bx
 		push [word ptr bx+2]
 		push [word ptr bx]
-		push ecx
+		push eax
 		push edx
 		call change
 		
@@ -1449,6 +1460,7 @@ endp physics_sticks
 proc physics
 	push bp
 	mov bp, sp
+	push cx
 	
 	push [word ptr bp+14]
 	push [word ptr bp+12]
@@ -1456,13 +1468,17 @@ proc physics
 	push [word ptr bp+8]
 	call physics_dots
 	
-	push [word ptr bp+16]
-	push [word ptr bp+12]
-	push [word ptr bp+18]
-	push [word ptr bp+6]
-	push [word ptr bp+4]
-	call physics_sticks
-
+	mov cx, 5
+		physics_loop_sticks:
+		push [word ptr bp+16]
+		push [word ptr bp+12]
+		push [word ptr bp+18]
+		push [word ptr bp+6]
+		push [word ptr bp+4]
+		call physics_sticks
+	loop physics_loop_sticks
+	
+	pop cx
 	pop bp
 	ret 16
 endp physics
@@ -1859,7 +1875,7 @@ start:
 		and ax, 1b
 		
 		; simulation
-		mov bx, [sticks_length]
+		mov bx, offset sticks_length
 		push bx
 		mov bx, offset fpu
 		push bx
@@ -1910,6 +1926,7 @@ exit:
 END start
 
 ; todo:
+; fix {stick too big for screen} bug
 ; make variable for max amount of dots and stick
 ; make dots lockable and fix selection
 ; make starting screen
@@ -1917,5 +1934,5 @@ END start
 ; make color palette variable for dots
 ; render: first delete, then display
 ; render: for each none moving stick, if part is deleted, redisplay
-; add decimals
+; add decimals to dots positions
 ; change screen resolution
