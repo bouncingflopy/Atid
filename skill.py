@@ -1,87 +1,147 @@
 from penguin_game import *
 
-# sorts the ices by distance from current
-def ices_sort(ices, current):
-    amounts = [current.get_turns_till_arrival(ice) for ice in ices]
-    ices_amounts = {amounts[i]:ices[i] for i in range(len(ices))}
+def sort_moving(game, moving):
+    moves = []
     
-    for i in range(len(amounts)):
-        small = amounts[i]
-        small_place = i
+    for i in range(len(moving)):
+        small_am = 300
+        small = []
         
-        for j in range(len(amounts) - i):
-            if amounts[j + i] < small:
-                small = amounts[j + i]
-                small_place = j + i
+        for move in moving:
+            if move not in moves:
+                if move[1] < small_am:
+                    small_am = move[1]
+                    small = move
         
-        temp = amounts[i]
-        amounts[i] = amounts[small_place]
-        amounts[small_place] = temp
+        moves[i] = small
     
-    new_ices = [ices_amounts[amount] for amount in amounts]
+    return moves
+
+def get_owner(game):
+    owner = [0 for _ in range(len(game.get_all_icebergs))]
+    for i, ice in enumerate(game.get_all_icebergs()):
+        if ice in game.get_my_icebergs():
+            owner[i] = 1
+        else if ice in game.get_enemy_icebergs():
+            owner[i] = -1
     
-    return new_ices[1:]
+    return owner
+
+def get_needed(game):
+    owner = get_owner(game)
+    ices = [[ice.penguin_amount, ice.level, owner[i]] for i, ice in enumerate(game.get_all_icebergs())]
+    moving = [[] for _ in range(len(game.get_all_icebergs))]
+    needed = [0 for _ in range(len(game.get_all_icebergs))]
+    turns = [0 for _ in range(len(game.get_all_icebergs))]
+    
+    for i, ice in enumerate(game.get_all_icebergs()):
+        
+        # moving
+        for g in game.get_all_penguin_groups():
+            if g.destination == ice:
+                if g.source in game.get_my_icebergs():
+                    moving[i] = [g.penguin_amount, g.turns_till_arrival]
+                else:
+                    moving[i] = [-g.penguin_amount, g.turns_till_arrival]
+        
+        # ices
+        moving_sorted = sort_moving(game, moving[i])
+        for move in moving_sorted:
+            if ices[i][2] != 0:
+                ices[i][0] += ices[i][1] * move[1]
+            
+            if move[0] > 0:
+                if ices[i][2] == 1:
+                    ices[i][0] += move[0]
+                else:
+                    ices[i][0] -= move[0]
+                    if ices[i][0] < 0:
+                        ices[i][0] = -ices[i][0]
+                        ices[i][2] = 1
+            else:
+                if ices[i][2] == -1:
+                    ices[i][0] += -move[0]
+                else:
+                    ices[i][0] -= -move[0]
+                    if ices[i][0] < 0:
+                        ices[i][0] = -ices[i][0]
+                        ices[i][2] = -1
+            
+            turns[i] = move[1]
+        
+    # needed
+    for i in range(len(needed):
+        if ices[i][2] != 1:
+            needed[i] = ices[i][0] + 1
+    
+    return needed, turns
+
+def sort_needed(game, needed, turns, current):
+    ices = game.get_all_icebergs()
+    needed_sorted = [0 for _ in range(len(needed))]
+    
+    for i, need in enumerate(needed):
+        if turns[i] >= current.get_turns_till_arrival(ices[i]):
+            needed_sorted[i] = need
+        else:
+            needed_sorted[i] = need
+            needed_sorted[i] += ices[i].penguins_per_turn * (current.get_turns_till_arrival(ices[i]) - turns[i])
+    
+    return needed_sorted
+
+def sort_distance(game, current):
+    ices = game.get_all_icebergs()
+    ices_numbers = {ices[i]:i for i in range(len(ices))}
+    distances = [current.get_turns_till_arrival(ice) for ice in ices]
+    distances_ices = {distances[i]:ices[i] for i in range(len(ices))}
+    
+    distances = sorted(distances)
+    sorted_distances = [distances_ices[distance] for distance in distances]
+    sorted_distances = {ices_numbers[ice]:ice for ice in sorted_distances}
+    
+    return sorted_distances
 
 def do_turn(game):
+    needed, turns = get_needed(game)
     
-    ices = game.get_my_icebergs()
-    amounts = [ice.penguin_amount for ice in ices] # array of numebr of penguins in each ice
-    
-    save_amounts = [0 for i in range(len(ices))] # amount of enemy penguins going to each ice
-    save_turns = save_amounts # how many turns the enemy penguins are from each ice
-    
-    # calculate save_amounts and save_turns
-    for i in range(len(ices)):
-        ice = game.get_my_icebergs()[i]
+    for i, ice in enumerate(game.get_all_icebergs()):
         
-        for group in game.get_enemy_penguin_groups():
-            if group.destination == ice:
-                save_amounts[i] = group.penguin_amount
-                save_turns[i] = group.turns_till_arrival
-        
-        for group in game.get_my_penguin_groups():
-            if group.destination == ice:
-                save_amounts[i] -= group.penguin_amount
-    
-    
-    for i in range(len(ices)):
-        ice = ices[i]
-        needed = ice.penguin_amount + (ice.penguins_per_turn * save_turns[i])
-        if save_amounts[i] > needed + 1: # checks if ice needs saving
-
-            ice_sorted = ices_sort(ices, ice) # sorts the ice by distance to the current ice
+        if ice in game.get_my_icebergs():
+            f = 0
+            used = []
             
-            for j in range(len(ice_sorted)):
-                new_ice = ice_sorted[j]
-                new_ice_needed = new_ice.penguin_amount + (new_ice.penguins_per_turn * save_turns[j])
+            while needed[i] > 0 and len(used) <= len(game.get_all_icebergs()):
+                f += 1
+                friend = game.get_all_icebergs()[f]
                 
-                if save_amounts[j] < new_ice_needed and save_amounts[i] > needed + 1:
-                    save_amounts[i] -= new_ice.penguin_amount
-                    new_ice.send_penguins(ice, new_ice.penguin_amount - new_ice_needed - 1)
-                    amounts[j] = new_ice_needed + 1
-    
-    for i in range(len(game.get_my_icebergs())):
-        ice = game.get_my_icebergs()[i]
-        if save_amounts[i] <= 0 and amounts[i] > 0:
-            
-            small = game.get_all_icebergs()[0]
-            if small == ice:
-                small = game.get_all_icebergs()[1]
-            for j in game.get_all_icebergs():
-                if ice.get_turns_till_arrival(j) < ice.get_turns_till_arrival(small) and j not in game.get_my_icebergs():
-                    small = j
-            
-            if (ice.get_turns_till_arrival(small) * ice.penguins_per_turn < ice.upgrade_cost - ice.penguin_amount) or ice.level == ice.upgrade_level_limit:
-                for enemy in game.get_enemy_icebergs():
-                    needed = enemy.penguin_amount + (enemy.penguins_per_turn * ice.get_turns_till_arrival(enemy))
-                    if amounts[i] > needed + 1:
-                        ice.send_penguins(enemy, needed + 1)
-                        amounts[i] -= needed + 1
+                if friend in game.get_my_icebergs():
+                    if friend not in used:
+                        if needed[f] <= 0:
+                            if friend.penguin_amount > needed[i]:
+                                friend.send_penguins(ice, needed[i])
+                                needed[i] = 0
+                            else:
+                                friend.send_penguins(ice, friend.penguin_amount)
+                used.append(friend)
+        else:
+            if ice.level < ice.upgrade_level_limit:
+                cost = ice.upgrade_cost
+                needed_sorted = sort_needed(game, needed, turns, current)
                 
-                for neutral in game.get_neutral_icebergs():
-                    if amounts[i] > neutral.penguin_amount + 1:
-                        ice.send_penguins(enemy, neutral.penguin_amount + 1)
-                        amounts[i] -= neutral.penguin_amount + 1
-            
-            if ice.can_upgrade():
-                ice.upgrade()
+                if cost < needed_sorted[0] + needed_sorted[1]:
+                    if ice.can_upgrade:
+                        ice.upgrade()
+                else:
+                    # attack
+                    sorted_distances = sort_distance(game, current)
+                    
+                    for e, enemy in sorted_distances:
+                        if turns[e] > ice.get_turns_till_arrival(enemy):
+                            need = needed[e]
+                        else:
+                            need = needed[e]
+                            need += enemy.penguins_per_turn * (ice.get_turns_till_arrival(enemy) - turns[e])
+                        
+                        free = ice.penguin_amount - needed[i]
+                        if free > need + 1:
+                            ice.send_penguins(enemy, need + 1)
