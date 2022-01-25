@@ -103,6 +103,7 @@ def sort_distance(game, current):
 
 def do_turn(game):
     needed, turns = get_needed(game)
+    free = [game.get_all_icebergs()[i].penguin_amount - needed[i] for i in range(len(game.get_all_icebergs()))]
     
     for i, ice in enumerate(game.get_all_icebergs()):
         if ice in game.get_my_icebergs():
@@ -117,23 +118,21 @@ def do_turn(game):
                     if friend in game.get_my_icebergs():
                         if friend not in used:
                             if needed[f] <= 0:
-                                if friend.penguin_amount > needed[i]:
+                                if free[f] > needed[i]:
                                     friend.send_penguins(ice, needed[i])
                                     needed[i] = 0
                                 else:
-                                    friend.send_penguins(ice, friend.penguin_amount)
+                                    friend.send_penguins(ice, free[f])
                     
                     used.append(friend)
                     f += 1
             else:
-                free = ice.penguin_amount - needed[i]
-                
                 if ice.level < ice.upgrade_level_limit:
                     cost = ice.upgrade_cost
                     needed_sorted = sort_needed(game, needed, turns, ice)
                     
                     if cost < needed_sorted[0] + needed_sorted[1]:
-                        if free > cost:
+                        if free[i] > cost:
                             ice.upgrade()
                     else:
                         # attack
@@ -146,5 +145,5 @@ def do_turn(game):
                                 need = needed[s]
                                 need += starnger.penguins_per_turn * (ice.get_turns_till_arrival(starnger) - turns[s])
                             
-                            if free > need + 1:
+                            if free[i] > need + 1:
                                 ice.send_penguins(starnger, need + 1)
