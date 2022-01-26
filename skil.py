@@ -40,23 +40,25 @@ def do_turn(game):
             sorted_distance = sort_distance(game, ice)
             
             if needs_saving[i] > 0:
-                for f, friend in enumerate(sorted_distance):
+                for f, [_, friend] in enumerate(sorted_distance):
                     if needs_saving[i] > 0:
-                        if friend[1] in game.get_my_icebergs():
+                        if friend in game.get_my_icebergs():
                             if needs_saving[f] == 0:
                                 if free[i] > needs_saving[i]:
-                                    friend[1].send_penguins(ice, needs_saving[i])
+                                    friend.send_penguins(ice, needs_saving[i])
                                     free[f] -= needs_saving[i]
                                 else:
-                                    friend[1].send_penguins(ice, free[f])
+                                    friend.send_penguins(ice, free[f])
                                     free[f] = 0
             else:
                 cost = ice.upgrade_cost
                 
-                if -penguins[sorted_distance[0][0]] + -penguins[sorted_distance[1][0]] + 2 > cost:
+                if -penguins[sorted_distance[0][0]] + -penguins[sorted_distance[1][0]] + 2 > cost and ice.level < ice.upgrade_level_limit:
                     if free[i] > cost:
                         ice.upgrade()
                 else:
-                    for s, stranger in enumerate(sorted_distance):
-                        if free[i] > -penguins[s] + 1:
-                            ice.send_penguins(stranger[1], -penguins[s] + 1)
+                    for s, [_, stranger] in enumerate(sorted_distance):
+                        needed = -penguins[s] + 1
+                        needed += stranger.penguins_per_turn * ice.get_turns_till_arrival(stranger)
+                        if free[i] > needed:
+                            ice.send_penguins(stranger, -penguins[s] + 1)
