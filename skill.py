@@ -3,7 +3,7 @@ from penguin_game import *
 def get_turns(game):
     ices = game.get_all_icebergs()
     groups = [[] for _ in range(len(ices))]
-    turns_by_ice = [[[ice.penguin_amount, ice.owner]] for ice in range(len(ice))]
+    turns_by_ice = [[[ice.penguin_amount, ice.owner]] for ice in ices]
     
     for g, group in enumerate(game.get_all_penguin_groups()):
         for i, ice in enumerate(ices):
@@ -11,9 +11,9 @@ def get_turns(game):
                 groups[i].append(group)
     for i, ice in enumerate(ices):
         for t in range(game.max_turns - game.turn):
-            turn = game.turns + t
+            turn = game.turn + t
             
-            if not group.owner.equals(game.get_neutral()):
+            if not ice.owner.equals(game.get_neutral()):
                 turns_by_ice[i].append([turns_by_ice[i][-1][0] + ice.penguins_per_turn, turns_by_ice[i][-1][1]])
             else:
                 turns_by_ice[i].append(turns_by_ice[i][-1])
@@ -37,7 +37,7 @@ def get_freedom(game, ices, turns_by_ice, turns_by_turn):
     last_transfer = [0 for _ in ices]
     needs_saving = [[0, 0] for _ in ices]
     
-    for i, turns for enumerate(turns_by_ice):
+    for i, turns in enumerate(turns_by_ice):
         for t, turn in enumerate(turns):
             if turn[1].equals(ices[i].owner):
                 if turn[0] < lowest[i][0]:
@@ -71,7 +71,7 @@ def sort_distance(game, current):
 def do_turn(game):
     ices = game.get_all_icebergs()
     turns_by_ice, turns_by_turn = get_turns(game)
-    lowest, last_transfer, needs_saving - get_freedom(game, ices, turns_by_ice, turns_by_turn)
+    lowest, last_transfer, needs_saving = get_freedom(game, ices, turns_by_ice, turns_by_turn)
     
     # saving
     for i, ice in enumerate(ices):
@@ -91,14 +91,16 @@ def do_turn(game):
                             needs_saving[i] = [0, 0]
     
     turns_by_ice, turns_by_turn = get_turns(game)
-    lowest, last_transfer, needs_saving - get_freedom(game, ices, turns_by_ice, turns_by_turn)
+    lowest, last_transfer, needs_saving = get_freedom(game, ices, turns_by_ice, turns_by_turn)
     
     # upgrading and attacking
     for i, ice in enumerate(ices):
         if ice.owner.equals(game.get_myself()):
             cost = ice.upgrade_cost
-            needed = [turns_by_ices[i][ice.get_turns_till_arrival(ices[e]) + game.turns][0] + 1 for e in range(len(ices))
-            if not ices[e].owner.equals(game.get_myself()) or not turns_by_ices[i][last_transfer[e]][1].equals(game.get_myself()) else -1]
+            needed = [turns_by_ice[i][ice.get_turns_till_arrival(ices[e]) + game.turn][0] + 1 for e in range(len(ices))]
+            for e in range(len(ices)):
+                 if ices[e].owner.equals(game.get_myself()) or turns_by_ice[i][last_transfer[e]][1].equals(game.get_myself()):
+                     needed[e] = -1
             sorted_needed = sorted(needed)
             
             first_real = len(ices)
@@ -118,4 +120,4 @@ def do_turn(game):
                         if ice.penguin_amount > need:
                             ice.send_penguins(ices[needed_numbers[need]], need)
                             turns_by_ice, turns_by_turn = get_turns(game)
-                            lowest, last_transfer, needs_saving - get_freedom(game, ices, turns_by_ice, turns_by_turn)
+                            lowest, last_transfer, needs_saving = get_freedom(game, ices, turns_by_ice, turns_by_turn)
