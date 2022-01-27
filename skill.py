@@ -82,22 +82,20 @@ def do_turn(game):
                         if ice.get_turns_till_arrival(friend) > needs_saving[i][1]:
                             needs_saving[i][0] = turns[i][ice.get_turns_till_arrival(friend) + game.turn][0]
                         
-                        friend.send_penguins(ice, lowest[f] - 1)
-                        needs_saving[i][0] -= lowest[f] - 1
+                        friend.send_penguins(ice, lowest[f][0] - 1)
+                        needs_saving[i][0] -= lowest[f][0] - 1
                         
                         if needs_saving[i][0] < 0:
                             needs_saving[i] = [0, 0]
-    
-    turns = get_turns(game)
-    lowest, last_transfer, needs_saving = get_freedom(game, ices, turns)
     
     # upgrading and attacking
     for i, ice in enumerate(ices):
         if ice.owner.equals(game.get_myself()):
             cost = ice.upgrade_cost
-            needed = [turns[i][ice.get_turns_till_arrival(ices[e]) + game.turn][0] + 1 for e in range(len(ices))]
+            needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + game.turn][0] + 1for e in range(len(ices))]
+            
             for e in range(len(ices)):
-                 if ices[e].owner.equals(game.get_myself()) or turns[i][last_transfer[e]][1].equals(game.get_myself()):
+                 if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e]][1].equals(game.get_myself()):
                      needed[e] = -1
             sorted_needed = sorted(needed)
             
@@ -115,7 +113,5 @@ def do_turn(game):
                 
                 for need in sorted_needed:
                     if need > -1:
-                        if ice.penguin_amount > need:
+                        if lowest[i][0] > need:
                             ice.send_penguins(ices[needed_numbers[need]], need)
-                            turns = get_turns(game)
-                            lowest, last_transfer, needs_saving = get_freedom(game, ices, turns)
