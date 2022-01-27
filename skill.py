@@ -32,7 +32,7 @@ def get_turns(game):
 
 def get_freedom(game, ices, turns):
     lowest = [[ice.penguin_amount, game.turn] for ice in ices]
-    last_transfer = [0 for _ in ices]
+    last_transfer = [game.turn for _ in ices]
     needs_saving = [[0, 0] for _ in ices]
     
     for i in range(len(turns)):
