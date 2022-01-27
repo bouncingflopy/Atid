@@ -92,11 +92,15 @@ def do_turn(game):
     for i, ice in enumerate(ices):
         if ice.owner.equals(game.get_myself()):
             cost = ice.upgrade_cost
-            needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + game.turn][0] + 1for e in range(len(ices))]
             
+            needed = [-1 for _ in range(len(ices))]
             for e in range(len(ices)):
-                 if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e]][1].equals(game.get_myself()):
-                     needed[e] = -1
+                future = ice.get_turns_till_arrival(ices[e]) + game.turn
+                if future < game.max_turns:
+                    needed[e] = turns[e][future][0] + 1
+                
+                if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e]][1].equals(game.get_myself()):
+                    needed[e] = -1
             sorted_needed = sorted(needed)
             
             first_real = len(ices)
