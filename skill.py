@@ -24,9 +24,11 @@ def get_turns(game):
                         turns[i][-1][0] += group.penguin_amount
                     else:
                         turns[i][-1][0] -= group.penguin_amount
-                        if turns[i][-1][0] <= 0:
+                        if turns[i][-1][0] < 0:
                             turns[i][-1][0] *= -1
                             turns[i][-1][1] = group.owner
+                        elif turns[i][-1][0] == 0:
+                            turns[i][-1][1] = game.get_neutral()
     
     return turns
 
@@ -97,11 +99,11 @@ def do_turn(game):
                         if needs_saving[i][0] < 0:
                             needs_saving[i] = [0, 0]
     
-    ices, turns, lowest, last_transfer, needs_saving = get_all(game)
-    
     # upgrading and attacking
     for i, ice in enumerate(ices):
         if ice.owner.equals(game.get_myself()):
+            ices, turns, lowest, last_transfer, needs_saving = get_all(game)
+            
             cost = ice.upgrade_cost
             needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + 1][0] + 1 for e in range(len(ices))]
             
@@ -168,6 +170,8 @@ def do_turn(game):
                     
                     if not stranger.owner.equals(game.get_myself()) and needed[s] != -1:
                         if lowest[i][0] > needed[s]:
+                            print turns[s]
+                            print ice.get_turns_till_arrival(stranger) + 1
                             print ices
                             print s
                             print stranger
@@ -178,7 +182,10 @@ def do_turn(game):
                             lowest[i][0] -= needed[s]
 """
 todo:
-- if ice is heighst out of all, constantly attack with penguiin_per_turn
+- if ice is heighest out of all, constantly attack with penguiin_per_turn
 - fix wrong attacks: when ice attacks with less that it can have
 - fix multiple ices saving a friend
+- wait for enemy to attack neutral if twice of enemy is less than neutral (time the attack to hit exactly after enemy's attack)
+- saving system not detecting 1 remanding enemy take over
+- wrong neutral turn calculation
 """
