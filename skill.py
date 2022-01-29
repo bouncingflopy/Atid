@@ -4,6 +4,7 @@ def get_turns(game):
     ices = game.get_all_icebergs()
     groups = [[] for _ in range(len(ices))]
     turns = [[[ice.penguin_amount, ice.owner]] for ice in ices]
+    print turns
     
     for g, group in enumerate(game.get_all_penguin_groups()):
         for i, ice in enumerate(ices):
@@ -17,10 +18,15 @@ def get_turns(game):
                 turns[i].append([turns[i][-1][0] + ice.penguins_per_turn, turns[i][-1][1]])
             else:
                 turns[i].append(turns[i][-1])
+            if turns[i][-1][0] == 1:
+                print turns[i]
+                print "*************************************"
+            elif ice.owner.equals(game.get_neutral()) and ice.penguin_amount == 15:
+                print turns[i][-1]
             
             for group in groups[i]:
                 if group.turns_till_arrival + game.turn == turn:
-                    if group.owner.equals(turns[i][-1]):
+                    if group.owner.equals(turns[i][-1][1]):
                         turns[i][-1][0] += group.penguin_amount
                     else:
                         turns[i][-1][0] -= group.penguin_amount
@@ -180,6 +186,7 @@ def do_turn(game):
                             print "---------------------------"
                             ice.send_penguins(stranger, needed[s])
                             lowest[i][0] -= needed[s]
+                            needed[s] = 0
 """
 todo:
 - if ice is heighest out of all, constantly attack with penguiin_per_turn
@@ -188,4 +195,5 @@ todo:
 - wait for enemy to attack neutral if twice of enemy is less than neutral (time the attack to hit exactly after enemy's attack)
 - saving system not detecting 1 remanding enemy take over
 - wrong neutral turn calculation
+- check if upgrade is better by correct sorted scores
 """
