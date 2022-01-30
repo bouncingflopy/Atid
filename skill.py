@@ -14,18 +14,21 @@ def get_turns(game):
         for t in range(30):
             turn = game.turn + t
             
+            if i == 8:
+                print turns[i][-1]
+            
             if not turns[i][-1][1].equals(game.get_neutral()):
                 turns[i].append([turns[i][-1][0] + ice.penguins_per_turn, turns[i][-1][1]])
             else:
                 turns[i].append(turns[i][-1])
-            if turns[i][-1][0] == 1:
-                print turns[i]
-                print "*************************************"
-            elif ice.owner.equals(game.get_neutral()) and ice.penguin_amount == 15:
+            
+            if i == 8:
                 print turns[i][-1]
             
             for group in groups[i]:
                 if group.turns_till_arrival + game.turn == turn:
+                    if i == 8:
+                        print "debug"
                     if group.owner.equals(turns[i][-1][1]):
                         turns[i][-1][0] += group.penguin_amount
                     else:
@@ -35,7 +38,15 @@ def get_turns(game):
                             turns[i][-1][1] = group.owner
                         elif turns[i][-1][0] == 0:
                             turns[i][-1][1] = game.get_neutral()
+            
+            if i == 8:
+                print turns[i][-1]
+                print turns[i]
+                print "--------------------------------------"
+        if i == 8:
+            print turns[i][-1]
     
+    print turns[8]
     return turns
 
 def get_freedom(game, ices, turns):
