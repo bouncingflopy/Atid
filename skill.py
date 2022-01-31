@@ -3,7 +3,7 @@ from penguin_game import *
 def get_turns(game):
     ices = game.get_all_icebergs()
     groups = [[] for _ in range(len(ices))]
-    turns = [[[ice.penguin_amount, ice.owner]] for ice in ices]
+    turns = [[[ice.penguin_amount, ice.owner.id]] for ice in ices]
     print turns
     
     for g, group in enumerate(game.get_all_penguin_groups()):
@@ -13,31 +13,43 @@ def get_turns(game):
     for i, ice in enumerate(ices):
         for t in range(30):
             turn = game.turn + t
+            new_turn = turns[i][-1]
             
             if i == 8:
                 print turns[i][-1]
+                print turns[i]
             
-            if not turns[i][-1][1].equals(game.get_neutral()):
-                turns[i].append([turns[i][-1][0] + ice.penguins_per_turn, turns[i][-1][1]])
-            else:
-                turns[i].append(turns[i][-1])
+            if not turns[i][-1][1] == game.get_neutral().id:
+                new_turn = [turns[i][-1][0] + ice.penguins_per_turn, turns[i][-1][1]]
             
             if i == 8:
                 print turns[i][-1]
+                print turns[i]
             
             for group in groups[i]:
                 if group.turns_till_arrival + game.turn == turn:
                     if i == 8:
                         print "debug"
-                    if group.owner.equals(turns[i][-1][1]):
-                        turns[i][-1][0] += group.penguin_amount
+                        print turns[i]
+                    if group.owner.id == new_turn[1]:
+                        new_turn[0] += group.penguin_amount
+                        if i == 8:
+                            print turns[i]
                     else:
-                        turns[i][-1][0] -= group.penguin_amount
-                        if turns[i][-1][0] < 0:
-                            turns[i][-1][0] *= -1
-                            turns[i][-1][1] = group.owner
-                        elif turns[i][-1][0] == 0:
-                            turns[i][-1][1] = game.get_neutral()
+                        if i == 8:
+                            print turns[i]
+                        new_turn[0] -= group.penguin_amount
+                        if i == 8:
+                            print turns[i]
+                        if new_turn[0] < 0:
+                            new_turn[0] *= -1
+                            new_turn[1] = group.owner.id
+                        elif new_turn[0] == 0:
+                            new_turn[1] = game.get_neutral().id
+                        if i == 8:
+                            print turns[i]
+            
+            turns[i].append(new_turn)
             
             if i == 8:
                 print turns[i][-1]
@@ -56,19 +68,19 @@ def get_freedom(game, ices, turns):
     
     for i in range(len(turns)):
         for t, turn in enumerate(turns[i]):
-            if turn[1].equals(ices[i].owner):
+            if turn[1] == ices[i].owner.id:
                 if turn[0] < lowest[i][0]:
                     lowest[i] = [turn[0], t + game.turn]
             else:
                 if -turn[0] < lowest[i][0]:
                     lowest[i] = [-turn[0], t + game.turn]
             
-            if t > 0 and not turns[i][t][1].equals(turns[i][t-1][1]):
+            if t > 0 and not turns[i][t][1] == turns[i][t-1][1]:
                 last_transfer[i] = t + game.turn
     
     for i, ice in enumerate(ices):
-        if ice.owner.equals(game.get_myself()):
-            if not turns[i][last_transfer[i] - game.turn][1].equals(game.get_myself()):
+        if ice.owner == game.get_myself().id:
+            if not turns[i][last_transfer[i] - game.turn][1] == game.get_myself().id:
                 needs_saving[i][0] = last_transfer[i]
     
     return lowest, last_transfer, needs_saving
@@ -125,7 +137,7 @@ def do_turn(game):
             needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + 1][0] + 1 for e in range(len(ices))]
             
             for e in range(len(ices)):
-                if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1].equals(game.get_myself()):
+                if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1] == game.get_myself().id:
                     needed[e] = -1
             sorted_needed = sorted(needed)
             
@@ -147,7 +159,7 @@ def do_turn(game):
                 print [ice.get_turns_till_arrival(ices[e]) for e in range(len(ices))]
                 print needed
                 for e in range(len(ices)):
-                    if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1].equals(game.get_myself()):
+                    if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1] == game.get_myself().id:
                         needed[e] = -1
                 needed_numbers = [[j, needed[j]] for j in range(len(needed))]
                 sorted_needed = sorted(needed_numbers, key = lambda need: need[1])
