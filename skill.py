@@ -110,7 +110,7 @@ def do_turn(game):
             needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + 1][0] + 1 for e in range(len(ices))]
             
             for e in range(len(ices)):
-                if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1] == game.get_myself().id:
+                if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn][1] == game.get_myself().id:
                     needed[e] = -1
             sorted_needed = sorted(needed)
             
@@ -120,7 +120,7 @@ def do_turn(game):
                     first_real = n
                     break
             
-            if ice.level < ice.upgrade_level_limit and first_real + 1 < len(ices) and cost < sorted_needed[first_real] + sorted_needed[first_real+1]:
+            if ice.level < ice.upgrade_level_limit and first_real + 1 < len(ices) and cost < sorted_needed[first_real] + sorted_needed[first_real+1] and lowest[i][0] > cost:
                 if ice.can_upgrade():
                     ice.upgrade()
             else:
@@ -162,23 +162,18 @@ def do_turn(game):
                     if not ices[distance_stranger].owner.equals(game.get_myself()):
                         score[distance_stranger] += score_distances[s]
                     
-                    if needed_stranger + distance_stranger == 0:
-                        score[needed_stranger] = 0
-                        score[distance_stranger] = 0
-                    
                 
                 ices_scores = [[j, score[j]] for j in range(len(ices))]
                 sorted_ices = sorted(ices_scores, key = lambda j: j[1])
                 
-                for s, s_score in enumerate(sorted_ices):
-                    if s_score != 0 and needed[s] != -1:
-                        stranger = ices[s]
-                        
-                        if not stranger.owner.equals(game.get_myself()) and needed[s] != -1:
-                            if lowest[i][0] > needed[s]:
-                                ice.send_penguins(stranger, needed[s])
-                                lowest[i][0] -= needed[s]
-                                needed[s] = -1
+                for s, _ in enumerate(sorted_ices):
+                    stranger = ices[s]
+                    
+                    if not stranger.owner.equals(game.get_myself()) and needed[s] != -1:
+                        if lowest[i][0] > needed[s]:
+                            ice.send_penguins(stranger, needed[s])
+                            lowest[i][0] -= needed[s]
+                            needed[s] = -1
 """
 todo:
 - if ice is heighest out of all, constantly attack with penguiin_per_turn
@@ -188,5 +183,5 @@ todo:
 - saving system not detecting 1 remanding enemy take over
 - check if upgrade is better by correct sorted scores
 - if ice attacking and wont win, pioritize helping
-- only use + 1 in turns access when needed
+- fix scoreing system
 """
