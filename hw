@@ -1,0 +1,40 @@
+package classwork;
+import java.util.Scanner;
+
+public class pg109q10 {
+	public static Scanner reader = new Scanner(System.in);
+	
+	public static int[][] arr_in(int n, int m) {
+		int[][] end = new int[n][m];
+		
+		for (int i = 0; i < n; i++) {
+			for (int j = 0; j < n; j++) {
+				System.out.println("Enter " + n + ", " + m);
+				end[i][j] = reader.nextInt();
+			}
+		}
+		
+		return end;
+	}
+	
+	public static void main(String[] args) {
+		System.out.println("Enter the array size");
+		int n = reader.nextInt();
+		System.out.println("Enter m1");
+		int[][] m1 = arr_in(n, n);
+		System.out.println("Enter m2");
+		int[][] m2 = arr_in(n, n);
+		int[] m3 = new int[n];
+		
+		for (int i = 0; i < n; i++) {
+			m3[i] = 0;
+			for (int j = 0; j < n; j++) {
+				m3[i] += m1[i][j] * m2[i][j];
+			}
+		}
+		
+		for (int i = 0; i < n; i++) {
+			System.out.print(m3[i] + " ");
+		}
+	}
+}
