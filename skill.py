@@ -4,7 +4,6 @@ def get_turns(game):
     ices = game.get_all_icebergs()
     groups = [[] for _ in range(len(ices))]
     turns = [[[ice.penguin_amount, ice.owner.id]] for ice in ices]
-    print turns
     
     for g, group in enumerate(game.get_all_penguin_groups()):
         for i, ice in enumerate(ices):
@@ -13,52 +12,26 @@ def get_turns(game):
     for i, ice in enumerate(ices):
         for t in range(30):
             turn = game.turn + t
-            new_turn = turns[i][-1]
-            
-            if i == 8:
-                print turns[i][-1]
-                print turns[i]
+            new_penguins = turns[i][-1][0]
+            new_owner = turns[i][-1][1]
             
             if not turns[i][-1][1] == game.get_neutral().id:
-                new_turn = [turns[i][-1][0] + ice.penguins_per_turn, turns[i][-1][1]]
-            
-            if i == 8:
-                print turns[i][-1]
-                print turns[i]
+                new_penguins = turns[i][-1][0] + ice.penguins_per_turn
             
             for group in groups[i]:
                 if group.turns_till_arrival + game.turn == turn:
-                    if i == 8:
-                        print "debug"
-                        print turns[i]
-                    if group.owner.id == new_turn[1]:
-                        new_turn[0] += group.penguin_amount
-                        if i == 8:
-                            print turns[i]
+                    if group.owner.id == new_owner:
+                        new_penguins += group.penguin_amount
                     else:
-                        if i == 8:
-                            print turns[i]
-                        new_turn[0] -= group.penguin_amount
-                        if i == 8:
-                            print turns[i]
-                        if new_turn[0] < 0:
-                            new_turn[0] *= -1
-                            new_turn[1] = group.owner.id
-                        elif new_turn[0] == 0:
-                            new_turn[1] = game.get_neutral().id
-                        if i == 8:
-                            print turns[i]
+                        new_penguins -= group.penguin_amount
+                        if new_penguins < 0:
+                            new_penguins *= -1
+                            new_owner = group.owner.id
+                        elif new_penguins == 0:
+                            new_owner = game.get_neutral().id
             
-            turns[i].append(new_turn)
-            
-            if i == 8:
-                print turns[i][-1]
-                print turns[i]
-                print "--------------------------------------"
-        if i == 8:
-            print turns[i][-1]
+            turns[i].append([new_penguins, new_owner])
     
-    print turns[8]
     return turns
 
 def get_freedom(game, ices, turns):
@@ -156,8 +129,6 @@ def do_turn(game):
                 score_distances = score
                 
                 needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + 1][0] + 1 for e in range(len(ices))]
-                print [ice.get_turns_till_arrival(ices[e]) for e in range(len(ices))]
-                print needed
                 for e in range(len(ices)):
                     if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1] == game.get_myself().id:
                         needed[e] = -1
@@ -199,14 +170,6 @@ def do_turn(game):
                     
                     if not stranger.owner.equals(game.get_myself()) and needed[s] != -1:
                         if lowest[i][0] > needed[s]:
-                            print turns[s]
-                            print ice.get_turns_till_arrival(stranger) + 1
-                            print ices
-                            print s
-                            print stranger
-                            print lowest[i][0]
-                            print needed[s]
-                            print "---------------------------"
                             ice.send_penguins(stranger, needed[s])
                             lowest[i][0] -= needed[s]
                             needed[s] = 0
@@ -217,6 +180,5 @@ todo:
 - fix multiple ices saving a friend
 - wait for enemy to attack neutral if twice of enemy is less than neutral (time the attack to hit exactly after enemy's attack)
 - saving system not detecting 1 remanding enemy take over
-- wrong neutral turn calculation
 - check if upgrade is better by correct sorted scores
 """
