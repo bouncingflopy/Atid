@@ -1,187 +1,133 @@
 from penguin_game import *
 
-def get_turns(game):
-    ices = game.get_all_icebergs()
-    groups = [[] for _ in range(len(ices))]
-    turns = [[[ice.penguin_amount, ice.owner.id]] for ice in ices]
-    
-    for g, group in enumerate(game.get_all_penguin_groups()):
-        for i, ice in enumerate(ices):
-            if group.destination == ice:
-                groups[i].append(group)
-    for i, ice in enumerate(ices):
-        for t in range(30):
-            turn = game.turn + t
-            new_penguins = turns[i][-1][0]
-            new_owner = turns[i][-1][1]
-            
-            if not turns[i][-1][1] == game.get_neutral().id:
-                new_penguins = turns[i][-1][0] + ice.penguins_per_turn
-            
-            for group in groups[i]:
-                if group.turns_till_arrival + game.turn == turn:
-                    if group.owner.id == new_owner:
-                        new_penguins += group.penguin_amount
-                    else:
-                        new_penguins -= group.penguin_amount
-                        if new_penguins < 0:
-                            new_penguins *= -1
-                            new_owner = group.owner.id
-                        elif new_penguins == 0:
-                            new_owner = game.get_neutral().id
-            
-            turns[i].append([new_penguins, new_owner])
-    
-    return turns
+max_distance = None
+conquer = {}
 
-def get_freedom(game, ices, turns):
-    lowest = [[ice.penguin_amount, game.turn] for ice in ices]
-    last_transfer = [game.turn for _ in ices]
-    needs_saving = [[0, 0] for _ in ices]
-    
-    for i in range(len(turns)):
-        for t, turn in enumerate(turns[i]):
-            if turn[1] == ices[i].owner.id:
-                if turn[0] < lowest[i][0]:
-                    lowest[i] = [turn[0], t + game.turn]
-            else:
-                if -turn[0] < lowest[i][0]:
-                    lowest[i] = [-turn[0], t + game.turn]
-            
-            if t > 0 and not turns[i][t][1] == turns[i][t-1][1]:
-                last_transfer[i] = t + game.turn
-    
-    for i, ice in enumerate(ices):
-        if ice.owner == game.get_myself().id:
-            if not turns[i][last_transfer[i] - game.turn][1] == game.get_myself().id:
-                needs_saving[i][0] = last_transfer[i]
-    
-    return lowest, last_transfer, needs_saving
-    
-def sort_distance(game, current):
-    ices = game.get_all_icebergs()
-    ices_numbers = {ices[i]:i for i in range(len(ices))}
-    distances = [current.get_turns_till_arrival(ice) for ice in ices]
-    distances_ices = {distances[i]:ices[i] for i in range(len(ices))}
-    distances = sorted(distances)
-    
-    result = [distances_ices[distance] for distance in distances]
-    result = [[ices_numbers[ice], ice] for ice in result]
-    
-    return result[1:]
+# {ice: {turn(current=0,1,2,...): [needed_to_conquer, owner],...}}
+# positive number = will be an enemy iceberg in that turn, with n penguins.
+# negative number = will be a friendly iceberg in that turn, with -n penguins.
 
-def get_all(game):
-    ices = game.get_all_icebergs()
-    turns = get_turns(game)
-    lowest, last_transfer, needs_saving = get_freedom(game, ices, turns)
+possibilities = {}
+# {levels added: {ice: action,...},...}
+
+def update_conquer(game, l):
+    friendly_needed = lambda ice, turn: -ice.penguin_amount \
+                                        - ice.penguins_per_turn * turn \
+                                        - sum([group.penguin_amount for group in game.get_my_penguin_groups() if
+                                               group.destination.equals(ice) and group.turns_till_arrival <= turn]) \
+                                        + sum([group.penguin_amount for group in game.get_enemy_penguin_groups() if
+                                               group.destination.equals(ice) and group.turns_till_arrival <= turn])
+    enemy_needed = lambda ice, turn: ice.penguin_amount \
+                                     + ice.penguins_per_turn * turn \
+                                     - sum([group.penguin_amount for group in game.get_my_penguin_groups() if
+                                            group.destination.equals(ice) and group.turns_till_arrival <= turn]) \
+                                     + sum([group.penguin_amount for group in game.get_enemy_penguin_groups() if
+                                            group.destination.equals(ice) and group.turns_till_arrival <= turn])
+    neutral_needed = lambda ice, turn: abs(ice.penguin_amount
+                                           - sum([group.penguin_amount for group in game.get_enemy_penguin_groups() if
+                                                  group.destination.equals(ice) and group.turns_till_arrival <= turn])) \
+                                       - sum([group.penguin_amount for group in game.get_my_penguin_groups() if
+                                              group.destination.equals(ice) and group.turns_till_arrival <= turn])
+
+    need_to_conquer = {game.get_myself(): friendly_needed, game.get_enemy(): enemy_needed,
+                       game.get_neutral(): neutral_needed}
+    owners = {ice: ice.owner for ice in game.get_all_icebergs()}
+    global conquer
+
+    conquer = {ice: {turn: [need_to_conquer[owners[ice]](ice, turn), owners[ice]] for turn in range(max_distance) if
+                     game.turn + turn <= game.max_turns} for ice in game.get_all_icebergs()}
+    # if the turn_data changed from - to + => changed from friendly to enemy
+    # if the turn_data changed from + to - => changed from enemy to friendly
+    # if the iceberg was neutral and now either its amount of penguin changed or (the number of penguin groups sent to it decreased and it has the same penguin_amount), then the iceberg is no longer neutral (+=enemy, -=friendly)
+    for ice, ice_data in conquer.items():
+        owner_changed = False
+        for turn, turn_data in ice_data.items()[1:]:
+            prev = ice_data[turn - 1][0]
+            curr = ice_data[turn][0]
+            if owners[ice].equals(game.get_neutral()) and (prev != curr or (
+                    sum([1 for group in game.get_all_penguin_groups() if
+                         group.destination.equals(ice) and group.turns_till_arrival <= turn - 1]) < sum(
+                    [1 for group in game.get_all_penguin_groups() if group.destination.equals(
+                            ice) and group.turns_till_arrival <= turn]) and prev == curr)):  # Changed from neutral to other
+                if curr < 0:  # Changed from neutral to friendly
+                    owners[ice] = game.get_myself()
+                    owner_changed = True
+                elif curr > 0:  # Changed from neutral to enemy
+                    owners[ice] = game.get_enemy()
+                    owner_changed = True
+            elif prev > 0 and curr < 0:  # Changed from positive to negative, from enemy to friendly.
+                owners[ice] = game.get_myself()
+                owner_changed = True
+            elif prev < 0 and curr > 0:  # Changed from negative to positive, from friendly to enemy.
+                owners[ice] = game.get_enemy()
+                owner_changed = True
+
+            if owner_changed:
+                ice_data.update({t: [need_to_conquer[owners[ice]](ice, t), owners[ice]] for t in range(turn + 1, max_distance) if
+                                 game.turn + t <= game.max_turns})
+
+
+
+
+def play(game):
+    """
+        Go through the "conquer" dictionary from the highest level to the lowest level.
+        For every turn t: if the iceberg (with n penguins in turn t) is not a friendly one, then send n+1 penguins to it from an iceberg that is less than or equal to t turns away from it. Then update the conquer dictionary.
+        Upgrade all of the icebergs that haven't acted this turn if possible.
+    """
+    are_ok = {ice: True for ice in game.get_all_icebergs()}
     
-    return ices, turns, lowest, last_transfer, needs_saving
+    for ice, ice_data in dict(sorted(conquer.items(), key=lambda x: x[0].level, reverse=True)).items():
+        for t, turn_data in ice_data.items():
+            n = turn_data[0]
+            if n > 0: 
+                are_ok[ice] = False
+    
+    for ice, ice_data in dict(sorted(conquer.items(), key=lambda x: x[0].level, reverse=True)).items():
+        for t, turn_data in ice_data.items():
+            n = turn_data[0]
+            if n > 0:  # Need to conquer this iceberg.
+                for attacking_ice in sorted([i for i in game.get_my_icebergs()],
+                                            key=lambda iceberg: t - iceberg.get_turns_till_arrival(ice)):
+                    if attacking_ice.can_upgrade() and (attacking_ice.level + 1 >= ice.level):
+                        break
+                    if attacking_ice.penguin_amount > n + 6 and not attacking_ice.equals(ice) and not are_ok[ice]:
+                        if ice.owner.equals(game.get_neutral()):
+                            if attacking_ice.get_turns_till_arrival(ice) > t:
+                                attacking_ice.send_penguins(ice, n + 1)
+                                are_ok[ice] = True
+                        else:
+                            attacking_ice.send_penguins(ice, n + 1)
+                            are_ok[ice] = True
+                        # if attacking_ice.can_send_penguins(ice, n+1):
+                        #if n != 1:
+
+                        #else:
+                           # if conquer.get(ice).get(attacking_ice.get_turns_till_arrival(ice) - 1)[0] == 1 + ice.penguins_per_turn:
+                              #  attacking_ice.send_penguins(ice, 2)
+                        # update_conquer(game, [attacking_ice, ice])
+                    if are_ok[ice]:
+                        break
+
+    for ice in game.get_my_icebergs():
+        if ice.can_upgrade() and not ice.already_acted and are_ok[ice]:
+            ice.upgrade()
+
 
 def do_turn(game):
-    ices, turns, lowest, last_transfer, needs_saving = get_all(game)
-    
-    for i in range(len(ices)):
-        if needs_saving[i] > 0:
-            lowest[i][0] = 0
-    
-    # saving
-    for i, ice in enumerate(ices):
-        if needs_saving[i][0] != 0 and sum([lowest[f][0] for f in range(len(ices)) if ices[f].owner.equals(game.get_myself())]):
-            sorted_distance = sort_distance(game, ice)
-            
-            for f, friend in sorted_distance:
-                if friend.owner.equals(game.get_myself()):
-                    if needs_saving[f][0] == 0:
-                        if ice.get_turns_till_arrival(friend) > needs_saving[i][1]:
-                            needs_saving[i][0] = turns[i][ice.get_turns_till_arrival(friend) + 1][0]
-                        
-                        friend.send_penguins(ice, lowest[f][0] - 1)
-                        needs_saving[i][0] -= lowest[f][0] - 1
-                        
-                        if needs_saving[i][0] < 0:
-                            needs_saving[i] = [0, 0]
-    
-    # upgrading and attacking
-    for i, ice in enumerate(ices):
-        if ice.owner.equals(game.get_myself()):
-            ices, turns, lowest, last_transfer, needs_saving = get_all(game)
-            
-            cost = ice.upgrade_cost
-            needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + 1][0] + 1 for e in range(len(ices))]
-            
-            for e in range(len(ices)):
-                if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn][1] == game.get_myself().id:
-                    needed[e] = -1
-            sorted_needed = sorted(needed)
-            
-            first_real = len(ices)
-            for n, need in enumerate(sorted_needed):
-                if need != -1:
-                    first_real = n
-                    break
-            
-            if ice.level < ice.upgrade_level_limit and first_real + 1 < len(ices) and cost < sorted_needed[first_real] + sorted_needed[first_real+1] and lowest[i][0] > cost:
-                if ice.can_upgrade():
-                    ice.upgrade()
-            else:
-                score = [0 for s in ices]
-                score_needed = score
-                score_distances = score
-                
-                needed = [turns[e][ice.get_turns_till_arrival(ices[e]) + 1][0] + 1 for e in range(len(ices))]
-                for e in range(len(ices)):
-                    if ices[e].owner.equals(game.get_myself()) or turns[e][last_transfer[e] - game.turn + 1][1] == game.get_myself().id:
-                        needed[e] = -1
-                needed_numbers = [[j, needed[j]] for j in range(len(needed))]
-                sorted_needed = sorted(needed_numbers, key = lambda need: need[1])
-                
-                distances = [ice.get_turns_till_arrival(s) for s in ices]
-                distances_numbers = [[j, distances[j]] for j in range(len(distances))]
-                sorted_distances = sorted(distances_numbers, key = lambda distance: distance[1])
-                
-                for s in range(len(score)):
-                    # needed
-                    if sorted_needed[s][1] != -1:
-                        if s > 0 and sorted_needed[s - 1][1] != -1 and sorted_needed[s][1] == sorted_needed[s - 1][1]:
-                            score_needed[s] = score_needed[s - 1]
-                        else:
-                            score_needed[s] = s + 1
-                    
-                    # distances
-                    if s > 0 and sorted_distances[s][1] == sorted_distances[s - 1][1]:
-                        score_distances[s] = score_distances[s - 1]
-                    else:
-                        score_distances[s] = s + 1
-                
-                for s in range(len(score)):
-                    needed_stranger = needed_numbers[s][0]
-                    if not ices[needed_stranger].owner.equals(game.get_myself()):
-                        score[needed_stranger] += score_needed[s]
-                    
-                    distance_stranger = distances_numbers[s][0]
-                    if not ices[distance_stranger].owner.equals(game.get_myself()):
-                        score[distance_stranger] += score_distances[s]
-                    
-                
-                ices_scores = [[j, score[j]] for j in range(len(ices))]
-                sorted_ices = sorted(ices_scores, key = lambda j: j[1])
-                
-                for s, _ in enumerate(sorted_ices):
-                    stranger = ices[s]
-                    
-                    if not stranger.owner.equals(game.get_myself()) and needed[s] != -1:
-                        if lowest[i][0] > needed[s]:
-                            ice.send_penguins(stranger, needed[s])
-                            lowest[i][0] -= needed[s]
-                            needed[s] = -1
+
+    if game.turn == 1:
+        global max_distance
+        max_distance = max([ice1.get_turns_till_arrival(ice2) for ice1 in game.get_all_icebergs() for ice2 in game.get_all_icebergs()])
+    update_conquer(game, [])
+    play(game)
+
+
+
 """
-todo:
-- if ice is heighest out of all, constantly attack with penguiin_per_turn
-- fix wrong attacks: when ice attacks with less that it can have
-- fix multiple ices saving a friend
-- wait for enemy to attack neutral if twice of enemy is less than neutral (time the attack to hit exactly after enemy's attack)
-- saving system not detecting 1 remanding enemy take over
-- check if upgrade is better by correct sorted scores
-- if ice attacking and wont win, pioritize helping
-- fix scoreing system
+TODO:
+    dont upgrade an iceberg if its about to be conquered
+    dont send penguins from an iceberg if its about to be conquered and its level is higher than the iceberg the penguins were sent to
+    doesnt calculate the timing right - for neutral icebergs need turn_of_arrival==, not <=
+    dont send penguins if they will still be on their way when the game ends
 """
