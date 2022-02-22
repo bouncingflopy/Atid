@@ -1557,7 +1557,7 @@ proc selected_manage
 		push di
 		call array_access
 		pop bx
-		mov ax, 40
+		mov ax, 255
 		mov [bx+4], ax
 		jmp selected_manage_exit
 	
@@ -1594,7 +1594,6 @@ proc selected_manage
 	pop bp
 	ret 10
 endp selected_manage
-
 
 ; input: left's position in memory, previous left's position in memory, new left
 ; output: valid click - 1; non-valid click / no click - 0
@@ -1927,11 +1926,10 @@ END start
 
 ; todo:
 ; fix {stick too big for screen} bug
-; make variable for max amount of dots and stick
 ; make dots lockable and fix selection
 ; make starting screen
 ; make instructions
-; make color palette variable for dots
+; make control panel
 ; render: first delete, then display
 ; render: for each none moving stick, if part is deleted, redisplay
 ; add decimals to dots positions
