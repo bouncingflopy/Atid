@@ -28,6 +28,9 @@ left dw 0
 left_prev dw 0
 
 fpu dd ?
+
+; nuclear (no clear) mode
+nuclear dw 0
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -673,7 +676,27 @@ proc check_dot_change
 	ret 4
 endp check_dot_change
 
-; input: wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount
+; input: none
+; output: none
+proc clear
+	push ax
+	push cx
+	push di
+	
+	mov ax, 0
+	
+	mov cx, 320*200
+	clear_loop:
+		mov di, cx
+		mov [es:di], ax
+	loop clear_loop
+	
+	pop di
+	pop cx
+	pop ax
+endp clear
+
+; input: wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount, nuclear mode
 ; ouput: none
 proc render
 	push bp
@@ -682,135 +705,40 @@ proc render
 	push cx
 	push di
 	
-	mov cx, [bp+4]
+	mov cx, 1
+	cmp [bp+4], cx
+	je render_skip_clear
+	call clear
+	render_skip_clear:
+	
+	mov cx, [bp+6]
 	render_sticks:
 		cmp cx, 0
-		jne render_sticks_after_no
-		jmp render_sticks_after 
-		render_sticks_after_no:
+		je render_sticks_after
 		
-		push [word ptr bp+6]
+		push [word ptr bp+8]
 		push cx
 		call array_access
 		pop bx
 		
-		; check if first dot changed
+		push [word ptr bp+8]
+		push cx
 		push [word ptr bp+14]
-		push [word ptr bp+12]
-		push [word ptr bx]
-		call check_dot_change
-		pop di
-		cmp di, 1
-		je stick_do_display
-		
-		; check if second dot changed
-		push [word ptr bp+14]
-		push [word ptr bp+12]
-		push [word ptr bx+2]
-		call check_dot_change
-		pop di
-		cmp di, 0
-		je stick_dont_display
-			
-			stick_do_display:
-			; delete last position
-				; stick in memory
-				push [word ptr bp+6]
-				push cx
-				call array_access
-				pop bx
-				
-				push [word ptr bp+14]
-				push [word ptr bx]
-				call array_access
-				pop di
-				push [word ptr di]
-				push [word ptr di+2]
-				
-				push [word ptr bp+14]
-				push [word ptr bx+2]
-				call array_access
-				pop di
-				push [word ptr di]
-				push [word ptr di+2]
-				
-				push 0
-				call naive_algo_setup
-			
-			; delete wall position
-				; stick in memory
-				push [word ptr bp+6]
-				push cx
-				call array_access
-				pop bx
-				
-				push [word ptr bp+16]
-				push [word ptr bx]
-				call array_access
-				pop di
-				push [word ptr di]
-				push [word ptr di+2]
-				
-				push [word ptr bp+16]
-				push [word ptr bx+2]
-				call array_access
-				pop di
-				push [word ptr di]
-				push [word ptr di+2]
-				
-				push 0
-				call naive_algo_setup
-			
-			push [word ptr bp+6]
-			push cx
-			push [word ptr bp+12]
-			call display_stick
-		
-		stick_dont_display:
+		call display_stick
 		
 		dec cx
 	jmp render_sticks
 	render_sticks_after:
 	
-	mov cx, [bp+10]
+	mov cx, [bp+12]
 	render_dots:
 		cmp cx, 0
 		je render_dots_after
 		
-		; check if dot changed
 		push [word ptr bp+14]
-		push [word ptr bp+12]
 		push cx
-		call check_dot_change
-		pop bx
-		cmp bx, 0
-		je dot_dont_display
-		
-			; delete last position
-				push [word ptr bp+14]
-				push cx
-				call array_access
-				pop bx
-				push [word ptr bx+4]
-				mov [word ptr bx+4], 0
-				push [word ptr bp+14]
-				push cx
-				push [word ptr bp+8]
-				call display_square
-				pop [word ptr bx+4]
-			
-			; delete wall position
-				push [word ptr bp+16]
-				push cx
-				push [word ptr bp+8]
-				call display_square
-			
-			push [word ptr bp+12]
-			push cx
-			push [word ptr bp+8]
-			call display_square
-		
-		dot_dont_display:
+		push [word ptr bp+10]
+		call display_square
 		
 		dec cx
 	jmp render_dots
@@ -820,7 +748,7 @@ proc render
 	pop cx
 	pop bx
 	pop bp
-	ret 14
+	ret 16
 endp render
 
 ; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
@@ -888,11 +816,12 @@ proc wall
 		sub cx, [bx+2]
 		add si, cx
 	wall_y_down:
-		mov cx, 199
+		mov cx, 198
 		cmp dx, cx
 		jle wall_exit
 		
-		mov dx, 199
+		mov dx, 198
+		mov dx, 198
 		mov cx, dx
 		sub cx, [bx+2]
 		add si, cx
@@ -933,6 +862,10 @@ proc physics_dots
 		push cx
 		call array_access
 		pop bx
+		
+		mov ax, 40
+		cmp [bx+4], ax
+		je physics_dots_loop_end
 		push bx
 		
 		mov ax, [bx]
@@ -979,6 +912,8 @@ proc physics_dots
 		pop bx
 		mov [bx], ax
 		mov [bx+2], dx
+		
+		physics_dots_loop_end:
 		pop cx
 	loop physics_dots_loop
 	
@@ -1455,6 +1390,80 @@ proc physics_sticks
 	ret 10
 endp physics_sticks
 
+; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
+; output: none
+proc recheck_walls
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+	push si
+	
+	mov cx, [bp+4]
+	recheck_walls_loop:
+		push cx
+		
+		push [word ptr bp+8]
+		push cx
+		call array_access
+		pop bx
+		
+		mov ax, 40
+		cmp [bx+4], ax
+		je recheck_walls_loop_end
+		push bx
+		
+		mov ax, [bx]
+		mov dx, [bx+2]
+		mov di, ax
+		mov si, dx
+		
+		push [word ptr bp+6]
+		push cx
+		call array_access
+		pop bx
+		
+		; ------------
+		; ax - pointX
+		; dx - pointY
+		; di - startPointX
+		; si - startPointY
+		; bx - prevPoint in memory
+		; ------------
+		
+		; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
+		push [word ptr bp+10]
+		push cx
+		push ax
+		push dx
+		push di
+		push si
+		push bx
+		call wall
+		pop si
+		pop di
+		pop dx
+		pop ax
+		
+		pop bx
+		
+		recheck_walls_loop_end:
+		pop cx
+	loop recheck_walls_loop
+	
+	pop si
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop bp
+	ret 8
+endp recheck_walls
+
 ; input: stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
@@ -1477,6 +1486,12 @@ proc physics
 		push [word ptr bp+4]
 		call physics_sticks
 	loop physics_loop_sticks
+	
+	push [word ptr bp+14]
+	push [word ptr bp+12]
+	push [word ptr bp+10]
+	push [word ptr bp+8]
+	call recheck_walls
 	
 	pop cx
 	pop bp
@@ -1557,7 +1572,7 @@ proc selected_manage
 		push di
 		call array_access
 		pop bx
-		mov ax, 255
+		mov ax, 40
 		mov [bx+4], ax
 		jmp selected_manage_exit
 	
@@ -1702,6 +1717,8 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
+		mov bx, [nuclear]
+		push bx
 		call render
 	
 	; sandbox loop
@@ -1816,6 +1833,8 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
+		mov bx, [nuclear]
+		push bx
 		call render
 		
 		; reshow mouse
@@ -1907,6 +1926,8 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
+		mov bx, [nuclear]
+		push bx
 		call render
 		
 		call delay_physics
@@ -1930,7 +1951,3 @@ END start
 ; make starting screen
 ; make instructions
 ; make control panel
-; render: first delete, then display
-; render: for each none moving stick, if part is deleted, redisplay
-; add decimals to dots positions
-; change screen resolution
