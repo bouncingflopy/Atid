@@ -694,9 +694,10 @@ proc clear
 	pop di
 	pop cx
 	pop ax
+	ret
 endp clear
 
-; input: wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount, nuclear mode
+; input: wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount
 ; ouput: none
 proc render
 	push bp
@@ -705,39 +706,33 @@ proc render
 	push cx
 	push di
 	
-	mov cx, 1
-	cmp [bp+4], cx
-	je render_skip_clear
-	call clear
-	render_skip_clear:
-	
-	mov cx, [bp+6]
+	mov cx, [bp+4]
 	render_sticks:
 		cmp cx, 0
 		je render_sticks_after
 		
-		push [word ptr bp+8]
+		push [word ptr bp+6]
 		push cx
 		call array_access
 		pop bx
 		
-		push [word ptr bp+8]
+		push [word ptr bp+6]
 		push cx
-		push [word ptr bp+14]
+		push [word ptr bp+12]
 		call display_stick
 		
 		dec cx
 	jmp render_sticks
 	render_sticks_after:
 	
-	mov cx, [bp+12]
+	mov cx, [bp+10]
 	render_dots:
 		cmp cx, 0
 		je render_dots_after
 		
-		push [word ptr bp+14]
+		push [word ptr bp+12]
 		push cx
-		push [word ptr bp+10]
+		push [word ptr bp+8]
 		call display_square
 		
 		dec cx
@@ -748,7 +743,7 @@ proc render
 	pop cx
 	pop bx
 	pop bp
-	ret 16
+	ret 14
 endp render
 
 ; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
@@ -789,38 +784,37 @@ proc wall
 		pop bx
 	
 	wall_x_left:
-		mov cx, 1
+		mov cx, 2
 		cmp ax, cx
 		jae wall_x_right
 		
-		mov ax, 1
+		mov ax, 2
 		mov cx, ax
 		sub cx, [bx]
 		add di, cx
 	wall_x_right:
-		mov cx, 319
+		mov cx, 318
 		cmp ax, cx
-		jle wall_y_up
+		jbe wall_y_up
 		
-		mov ax, 319
+		mov ax, 318
 		mov cx, ax
 		sub cx, [bx]
 		add di, cx
 	wall_y_up:
-		mov cx, 1
+		mov cx, 2
 		cmp dx, cx
 		jae wall_y_down
 		
-		mov dx, 1
+		mov dx, 2
 		mov cx, dx
 		sub cx, [bx+2]
 		add si, cx
 	wall_y_down:
 		mov cx, 198
 		cmp dx, cx
-		jle wall_exit
+		jbe wall_exit
 		
-		mov dx, 198
 		mov dx, 198
 		mov cx, dx
 		sub cx, [bx+2]
@@ -1390,80 +1384,6 @@ proc physics_sticks
 	ret 10
 endp physics_sticks
 
-; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
-; output: none
-proc recheck_walls
-	push bp
-	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
-	
-	mov cx, [bp+4]
-	recheck_walls_loop:
-		push cx
-		
-		push [word ptr bp+8]
-		push cx
-		call array_access
-		pop bx
-		
-		mov ax, 40
-		cmp [bx+4], ax
-		je recheck_walls_loop_end
-		push bx
-		
-		mov ax, [bx]
-		mov dx, [bx+2]
-		mov di, ax
-		mov si, dx
-		
-		push [word ptr bp+6]
-		push cx
-		call array_access
-		pop bx
-		
-		; ------------
-		; ax - pointX
-		; dx - pointY
-		; di - startPointX
-		; si - startPointY
-		; bx - prevPoint in memory
-		; ------------
-		
-		; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
-		push [word ptr bp+10]
-		push cx
-		push ax
-		push dx
-		push di
-		push si
-		push bx
-		call wall
-		pop si
-		pop di
-		pop dx
-		pop ax
-		
-		pop bx
-		
-		recheck_walls_loop_end:
-		pop cx
-	loop recheck_walls_loop
-	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
-	ret 8
-endp recheck_walls
-
 ; input: stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
@@ -1486,12 +1406,6 @@ proc physics
 		push [word ptr bp+4]
 		call physics_sticks
 	loop physics_loop_sticks
-	
-	push [word ptr bp+14]
-	push [word ptr bp+12]
-	push [word ptr bp+10]
-	push [word ptr bp+8]
-	call recheck_walls
 	
 	pop cx
 	pop bp
@@ -1717,8 +1631,6 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
-		mov bx, [nuclear]
-		push bx
 		call render
 	
 	; sandbox loop
@@ -1833,8 +1745,6 @@ start:
 		push bx
 		mov bx, [stick_amount]
 		push bx
-		mov bx, [nuclear]
-		push bx
 		call render
 		
 		; reshow mouse
@@ -1911,6 +1821,13 @@ start:
 		push bx
 		call physics
 		
+		; clear screen
+		mov cx, 1
+		cmp [nuclear], cx
+		je skip_clear
+		call clear
+		skip_clear:
+		
 		; render
 		mov bx, offset dots_wall_prev
 		push bx
@@ -1925,8 +1842,6 @@ start:
 		mov bx, offset sticks
 		push bx
 		mov bx, [stick_amount]
-		push bx
-		mov bx, [nuclear]
 		push bx
 		call render
 		
