@@ -1338,6 +1338,54 @@ proc physics_sticks
 				; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
 		; -------------------------------
 		
+		push ax
+		push bx
+			mov bx, [bp+6]
+			push bx
+			push cx
+			call array_access
+			pop bx
+			mov ax, [bx+4]
+			cmp ax, 40
+			je a_locked
+			
+				mov bx, [bp+10]
+				push bx
+				push cx
+				call array_access
+				pop bx
+				mov ax, [bx+4]
+				cmp ax, 40
+				jne b_not_locked
+					
+					; offsetX *= 2
+					; offsetY *= 2
+					jmp b_check
+				
+				b_not_locked:
+					; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
+					jmp b_check
+			
+			a_locked:
+				; offsetX *= 2
+				; offsetY *= 2
+			
+			b_check:
+				mov bx, [bp+10]
+				push bx
+				push cx
+				call array_access
+				pop bx
+				mov ax, [bx+4]
+				cmp ax, 40
+				je b_locked
+					
+					; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
+				
+			b_locked:
+		pop bx
+		pop ax
+		
 		; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
 		push [word ptr bp+12]
 		push [word ptr bp+10]
