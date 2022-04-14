@@ -1102,7 +1102,7 @@ proc sticks_length_init
 	ret 10
 endp sticks_length_init
 
-; input: fpu in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
+; input: fpu in memory, wall dots start in memory, prev dots arrat start in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
 ; output: none
 proc change
 	push bp
@@ -1133,7 +1133,7 @@ proc change
 		; final[1] -= offsetY
 	
 	; round offsets
-		mov bx, [bp+18]
+		mov bx, [bp+22]
 		
 		mov eax, [bp+8]
 		mov [bx], eax
@@ -1171,14 +1171,40 @@ proc change
 	sub si, dx
 	change_y_after:
 	
-	; return final
-	push [word ptr bp+16]
-	push [word ptr bp+14]
-	call array_access
-	pop bx
 	
-	mov [bx], di
-	mov [bx+2], si
+	; wall
+		push [word ptr bp+16]
+		push [word ptr bp+14]
+		call array_access
+		pop bx
+		
+		push [word ptr bp+20]
+		push [word ptr bp+14]
+		push di
+		push si
+		push [word ptr bx]
+		push [word ptr bx+2]
+		
+		push [word ptr bp+18]
+		push [word ptr bp+14]
+		call array_access
+		call wall
+		pop si
+		pop di
+		pop dx
+		pop ax
+		
+	; return final
+		mov [bx], di
+		mov [bx+2], si
+		
+		push [word ptr bp+16]
+		push [word ptr bp+14]
+		call array_access
+		pop bx
+		
+		mov [bx], ax
+		mov [bx+2], dx
 	
 	pop si
 	pop di
@@ -1186,10 +1212,10 @@ proc change
 	pop bx
 	pop eax
 	pop bp
-	ret 16
+	ret 20
 endp change
 
-; input: fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
+; input: wall dots start in memory, prev dots start in memory, fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
 ; output: none
 proc physics_sticks
 	push bp
@@ -1357,18 +1383,33 @@ proc physics_sticks
 				mov ax, [bx+4]
 				cmp ax, 40
 				jne b_not_locked
+					sal eax, 1
+					sal edx, 1
 					
-					; offsetX *= 2
-					; offsetY *= 2
 					jmp b_check
 				
 				b_not_locked:
 					; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
+					push [word ptr bp+12]
+					push [word ptr bp+16]
+					push [word ptr bp+14]
+					push [word ptr bp+10]
+						mov bx, [bp+6]
+						push bx
+						push cx
+						call array_access
+						pop bx
+					push [word ptr bx]
+					push [word ptr bx+2]
+					push eax
+					push edx
+					call change
+					
 					jmp b_check
 			
 			a_locked:
-				; offsetX *= 2
-				; offsetY *= 2
+				sal eax, 1
+				sal edx, 1
 			
 			b_check:
 				mov bx, [bp+10]
@@ -1381,38 +1422,23 @@ proc physics_sticks
 				je b_locked
 					
 					; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
-				
+					push [word ptr bp+12]
+					push [word ptr bp+16]
+					push [word ptr bp+14]
+					push [word ptr bp+10]
+						mov bx, [bp+6]
+						push bx
+						push cx
+						call array_access
+						pop bx
+					push [word ptr bx+2]
+					push [word ptr bx]
+					push eax
+					push edx
+					call change
 			b_locked:
 		pop bx
 		pop ax
-		
-		; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
-		push [word ptr bp+12]
-		push [word ptr bp+10]
-			mov bx, [bp+6]
-			push bx
-			push cx
-			call array_access
-			pop bx
-		push [word ptr bx]
-		push [word ptr bx+2]
-		push eax
-		push edx
-		call change
-		
-		; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
-		push [word ptr bp+12]
-		push [word ptr bp+10]
-			mov bx, [bp+6]
-			push bx
-			push cx
-			call array_access
-			pop bx
-		push [word ptr bx+2]
-		push [word ptr bx]
-		push eax
-		push edx
-		call change
 		
 		physics_sticks_dont_change:
 		pop cx
@@ -1429,7 +1455,7 @@ proc physics_sticks
 	pop bx
 	pop eax
 	pop bp
-	ret 10
+	ret 14
 endp physics_sticks
 
 ; input: stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
@@ -1447,6 +1473,8 @@ proc physics
 	
 	mov cx, 5
 		physics_loop_sticks:
+		push [word ptr bp+14]
+		push [word ptr bp+10]
 		push [word ptr bp+16]
 		push [word ptr bp+12]
 		push [word ptr bp+18]
@@ -1908,9 +1936,18 @@ exit:
 	int 21h
 END start
 
-; todo:
-; fix {stick too big for screen} bug
-; make dots lockable and fix selection
+; TODO
+
+; BUGS
+; fix locking
+; fix selection
+
+; SCREENS
 ; make starting screen
 ; make instructions
 ; make control panel
+
+; OPTIONAL
+; add decimal point values
+; add templates
+; increase screen size
