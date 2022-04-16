@@ -9,7 +9,6 @@ DATASEG
 ; the dots array is sorted in the following order: x position, y position, color
 dot_amount dw 0
 dot_size dw 1
-dot_color dw 13
 dots dw 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
@@ -17,9 +16,14 @@ dots_wall_prev dw 100h dup (?, ?, ?), 321
 ; the sticks array is sorted in the following order: first dot, second dot, color
 stick_amount dw 0
 stick_size dw 1
-stick_color dw 6
 sticks dw 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
+
+; colors
+dot_color dw 2
+selected_color dw 7
+locked_color dw 56
+stick_color dw 6
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
 mode dw 0
@@ -27,6 +31,7 @@ selected dw ?, ?
 left dw 0
 left_prev dw 0
 
+; fpu
 fpu dd ?
 
 ; nuclear (no clear) mode
@@ -836,7 +841,7 @@ proc wall
 	ret 6
 endp wall
 
-; input: dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
+; input: locked color, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
 ; output: none
 proc physics_dots
 	push bp
@@ -857,7 +862,7 @@ proc physics_dots
 		call array_access
 		pop bx
 		
-		mov ax, 40
+		mov ax, [bp+12]
 		cmp [bx+4], ax
 		je physics_dots_loop_end
 		push bx
@@ -918,7 +923,7 @@ proc physics_dots
 	pop bx
 	pop ax
 	pop bp
-	ret 8
+	ret 10
 endp physics_dots
 
 ; input: 16 bit padding, number (16 bit)
@@ -1215,7 +1220,7 @@ proc change
 	ret 20
 endp change
 
-; input: wall dots start in memory, prev dots start in memory, fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
+; input: locked color, wall dots start in memory, prev dots start in memory, fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
 ; output: none
 proc physics_sticks
 	push bp
@@ -1372,7 +1377,7 @@ proc physics_sticks
 			call array_access
 			pop bx
 			mov ax, [bx+4]
-			cmp ax, 40
+			cmp ax, [bp+18]
 			je a_locked
 			
 				mov bx, [bp+10]
@@ -1381,7 +1386,7 @@ proc physics_sticks
 				call array_access
 				pop bx
 				mov ax, [bx+4]
-				cmp ax, 40
+				cmp ax, [bp+18]
 				jne b_not_locked
 					sal eax, 1
 					sal edx, 1
@@ -1418,7 +1423,7 @@ proc physics_sticks
 				call array_access
 				pop bx
 				mov ax, [bx+4]
-				cmp ax, 40
+				cmp ax, [bp+18]
 				je b_locked
 					
 					; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
@@ -1455,16 +1460,17 @@ proc physics_sticks
 	pop bx
 	pop eax
 	pop bp
-	ret 14
+	ret 16
 endp physics_sticks
 
-; input: stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; input: locked color, stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
 	push bp
 	mov bp, sp
 	push cx
 	
+	push [word ptr bp+20]
 	push [word ptr bp+14]
 	push [word ptr bp+12]
 	push [word ptr bp+10]
@@ -1473,6 +1479,7 @@ proc physics
 	
 	mov cx, 5
 		physics_loop_sticks:
+		push [word ptr bp+20]
 		push [word ptr bp+14]
 		push [word ptr bp+10]
 		push [word ptr bp+16]
@@ -1485,10 +1492,10 @@ proc physics
 	
 	pop cx
 	pop bp
-	ret 16
+	ret 20
 endp physics
 
-; input: dots start in memory, selected start in memory, new dot's number in array
+; input: dot color, selected color, dots start in memory, selected start in memory, new dot's number in array
 ; output: none
 proc selection
 	push bp
@@ -1508,7 +1515,7 @@ proc selection
 	push di
 	call array_access
 	pop di
-	mov ax, 13
+	mov ax, [bp+12]
 	mov [di+4], ax
 	
 	; cycle middle dot
@@ -1524,17 +1531,17 @@ proc selection
 	push ax
 	call array_access
 	pop bx
-	mov ax, 100
+	mov ax, [bp+10]
 	mov [bx+4], ax
 	
 	pop di
 	pop bx
 	pop ax
 	pop bp
-	ret 6
+	ret 10
 endp selection
 
-; input: selected start in memory, default stick color, sticks start location memory, sticks amount in memory, dots start in memory
+; input: locked color, dot color, selected start in memory, default stick color, sticks start location memory, sticks amount in memory, dots start in memory
 ; output: none
 proc selected_manage
 	push bp
@@ -1562,8 +1569,23 @@ proc selected_manage
 		push di
 		call array_access
 		pop bx
-		mov ax, 40
+		mov ax, [bp+16]
+		cmp [bx+4], ax
+		je selected_manage_selected
 		mov [bx+4], ax
+		; unselect
+		mov bx, [bp+12]
+		mov [bx], 0
+		mov [bx+2], 0
+		jmp selected_manage_exit
+		
+		selected_manage_selected:
+		mov ax, [bp+14]
+		mov [bx+4], ax
+		; unselect
+		mov bx, [bp+12]
+		mov [bx], 0
+		mov [bx+2], 0
 		jmp selected_manage_exit
 	
 	selected_manage_add_stick:
@@ -1597,7 +1619,7 @@ proc selected_manage
 	pop bx
 	pop ax
 	pop bp
-	ret 10
+	ret 12
 endp selected_manage
 
 ; input: left's position in memory, previous left's position in memory, new left
@@ -1684,7 +1706,7 @@ start:
 		mov es, ax
 		mov ax, 13h
 		int 10h
-		call background
+		call clear
 	
 	; setup mouse
 		mov ax, 0
@@ -1761,6 +1783,10 @@ start:
 				cmp di, 0
 				je sandbox_add_dot
 				
+				mov bx, offset dot_color
+				push [word ptr bx]
+				mov bx, offset selected_color
+				push [word ptr bx]
 				mov bx, offset dots
 				push bx
 				mov bx, offset selected
@@ -1795,6 +1821,10 @@ start:
 		
 		sandbox_end:
 		; manage selected dots
+		mov bx, offset locked_color
+		push [word ptr bx]
+		mov bx, offset dot_color
+		push [word ptr bx]
 		mov bx, offset selected
 		push bx
 		push [stick_color]
@@ -1879,6 +1909,8 @@ start:
 		and ax, 1b
 		
 		; simulation
+		mov bx, offset locked_color
+		push [word ptr bx]
 		mov bx, offset sticks_length
 		push bx
 		mov bx, offset fpu
@@ -1951,3 +1983,4 @@ END start
 ; add decimal point values
 ; add templates
 ; increase screen size
+; sans. (?)
