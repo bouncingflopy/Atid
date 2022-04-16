@@ -23,13 +23,17 @@ sticks_length dw 100h dup (?, ?, ?), 0
 dot_color dw 2
 selected_color dw 7
 locked_color dw 56
-stick_color dw 6
+stick_color dw 18
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
 mode dw 0
-selected dw ?, ?
+stick_handle dw 0
+selected dw 0
+saved_color dw 0
 left dw 0
 left_prev dw 0
+right dw 0
+right_prev dw 0
 
 ; fpu
 fpu dd ?
@@ -613,26 +617,6 @@ proc search_dots_by_position
 	pop bp
 	ret 4
 endp search_dots_by_position
-
-; input: none
-; output: none
-proc background
-	push ax
-	push cx
-	push di
-	
-	mov ax, 0
-	mov cx, 320*200
-	background_loop:
-		mov di, cx
-		mov [es:di], al
-	loop background_loop
-	
-	pop di
-	pop cx
-	pop ax
-	ret
-endp background
 
 ; input: prev dots start location in memory, dots start location in memory, dot's element number in array
 ; output: 1 - dot changed; 0 - dot didn't change
@@ -1495,136 +1479,9 @@ proc physics
 	ret 20
 endp physics
 
-; input: dot color, selected color, dots start in memory, selected start in memory, new dot's number in array
-; output: none
-proc selection
-	push bp
-	mov bp, sp
-	push ax
-	push bx
-	push di
-	
-	mov bx, [bp+6]
-	
-	; delete old dot
-	selection_old:
-	mov di, [bx]
-	cmp di, 0
-	je selection_middle
-	push [word ptr bp+8]
-	push di
-	call array_access
-	pop di
-	mov ax, [bp+12]
-	mov [di+4], ax
-	
-	; cycle middle dot
-	selection_middle:
-	mov ax, [bx+2]
-	mov [bx], ax
-	
-	; add new dot
-	selection_new:
-	mov ax, [bp+4]
-	mov [bx+2], ax
-	push [word ptr bp+8]
-	push ax
-	call array_access
-	pop bx
-	mov ax, [bp+10]
-	mov [bx+4], ax
-	
-	pop di
-	pop bx
-	pop ax
-	pop bp
-	ret 10
-endp selection
-
-; input: locked color, dot color, selected start in memory, default stick color, sticks start location memory, sticks amount in memory, dots start in memory
-; output: none
-proc selected_manage
-	push bp
-	mov bp, sp
-	push ax
-	push bx
-	push di
-	push si
-	
-	mov bx, [bp+12]
-	mov di, [bx]
-	mov si, [bx+2]
-	
-	cmp di, 0
-	je selected_manage_exit
-	cmp si, 0
-	je selected_manage_exit
-	
-	; if selected[1] == selected[0]: lock selected[0]
-	; else if selected[1] != selected[0]: add stick selected[0], selected[1]
-	
-	cmp di, si
-	jne selected_manage_add_stick
-		push [word ptr bp+4]
-		push di
-		call array_access
-		pop bx
-		mov ax, [bp+16]
-		cmp [bx+4], ax
-		je selected_manage_selected
-		mov [bx+4], ax
-		; unselect
-		mov bx, [bp+12]
-		mov [bx], 0
-		mov [bx+2], 0
-		jmp selected_manage_exit
-		
-		selected_manage_selected:
-		mov ax, [bp+14]
-		mov [bx+4], ax
-		; unselect
-		mov bx, [bp+12]
-		mov [bx], 0
-		mov [bx+2], 0
-		jmp selected_manage_exit
-	
-	selected_manage_add_stick:
-		; check if a key is pressed
-		mov ax, 100h
-		int 16h
-		jz selected_manage_exit
-		
-		; if a key is pressed, get pressed key
-		mov ax, 0
-		int 16h
-		cmp al, ' '
-		jne selected_manage_exit
-		
-		push di
-		push si
-		push [word ptr bp+10]
-		push [word ptr bp+8]
-		push [word ptr bp+6]
-		call array_add
-		
-		push [word ptr bp+8]
-		mov bx, [bp+6]
-		push [word ptr bx]
-		push [word ptr bp+4]
-		call display_stick
-	
-	selected_manage_exit:
-	pop si
-	pop di
-	pop bx
-	pop ax
-	pop bp
-	ret 12
-endp selected_manage
-
-; input: left's position in memory, previous left's position in memory, new left
+; input: button's position in memory, previous button's position in memory, new button
 ; output: valid click - 1; non-valid click / no click - 0
-proc left_click
+proc click
 	push bp
 	mov bp, sp
 	push ax
@@ -1645,10 +1502,10 @@ proc left_click
 	mov ax, 0
 	
 	cmp cx, dx
-	je left_click_end
+	je click_end
 	mov ax, [bp+4]
 	
-	left_click_end:
+	click_end:
 	mov [bp+8], ax
 	pop dx
 	pop cx
@@ -1656,7 +1513,7 @@ proc left_click
 	pop ax
 	pop bp
 	ret 4
-endp left_click
+endp click
 
 ; input: dot amount, dots start in memory, prev dots start in memory
 ; output: none
@@ -1697,6 +1554,66 @@ proc copy_dots
 	ret 6
 endp copy_dots
 
+; input: saved color in memory, dots in memory, selected color in memory, new select, select in memory
+; output: none
+proc select
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push di
+	
+	mov bx, [bp+4]
+	mov di, [bp+6]
+	mov [bx], di
+	
+	push [word ptr bp+10]
+	push di
+	call array_access
+	pop di
+	
+	; save color
+	mov bx, [bp+12]
+	mov ax, [di+4]
+	mov [bx], ax
+	
+	mov bx, [bp+8]
+	mov [di+4], bx
+	
+	
+	pop di
+	pop bx
+	pop ax
+	pop bp
+	ret 10
+endp select
+
+; input: dots in memory, saved color, select in memory
+; output: none
+proc deselect
+	push bp
+	mov bp, sp
+	push bx
+	push di
+	
+	push [word ptr bp+8]
+	mov bx, [bp+4]
+	push [bx]
+	call array_access
+	pop di
+	
+	mov bx, [bp+6]
+	mov [di+4], bx
+	
+	mov bx, [bp+4]
+	mov [word ptr bx], 0
+	
+	pop di
+	pop bx
+	pop bp
+	ret 6
+endp deselect
+	
 start:
 	mov ax, @data
 	mov ds, ax
@@ -1733,14 +1650,6 @@ start:
 	
 	; sandbox loop
 	sandbox:
-		; check mode
-		mov bx, offset mode
-		mov ax, 0
-		cmp [bx], ax
-		je no_sandbox_after
-		jmp sandbox_after
-		no_sandbox_after:
-		
 		; get mouse input
 		mov ax, 3
 		int 33h
@@ -1750,26 +1659,50 @@ start:
 		mov ah, al
 		and ah, 1b
 		and al, 10b
-		push ax
 		sar cx, 1
 		
 		; check left mouse button
-		cmp ah, 1b
-		jne no_left
+		sandbox_left:
 			mov bx, offset left
 			push bx
 			mov bx, offset left_prev
 			push bx
-			mov bx, 1
+			xor bx, bx
+			mov bl, ah
 			push bx
-			call left_click
-			pop ax
-			cmp ax, 1
-			jne sandbox_end
-			
+			call click
+			pop bx
+			cmp bx, 1
+			jne sandbox_right
+		
 			; hide mouse
 			mov ax, 2
 			int 33h
+			
+			; add dot to dots array
+			push cx
+			push dx
+			push [dot_color]
+			mov bx, offset dots
+			push bx
+			mov bx, offset dot_amount
+			push bx
+			call array_add
+		
+		; check right mouse button
+		sandbox_right:
+			mov bx, offset right
+			push bx
+			mov bx, offset right_prev
+			push bx
+			xor bx, bx
+			sar al, 1
+			mov bl, al
+			push bx
+			call click
+			pop bx
+			cmp bx, 1
+			jne keyboard
 			
 			; check if a dot is pressed
 			mov bx, offset dots
@@ -1780,63 +1713,138 @@ start:
 			pop di
 			
 			; handle search results
-				cmp di, 0
-				je sandbox_add_dot
-				
-				mov bx, offset dot_color
-				push [word ptr bx]
-				mov bx, offset selected_color
-				push [word ptr bx]
+			cmp di, 0
+			je keyboard
+			
+			cmp [word ptr selected], 0
+			je add_select
+			cmp [word ptr stick_handle], 1
+			je add_stick
+			cmp [selected], di
+			je only_deselect
+			
+			switch_select:
 				mov bx, offset dots
 				push bx
+				mov bx, offset saved_color
+				push [word ptr bx]
 				mov bx, offset selected
 				push bx
-				push di
-				call selection
+				call deselect
 				
-				jmp sandbox_end
-			
-			sandbox_add_dot:
-				; add dot to dots array
-				push cx
-				push dx
-				push [dot_color]
+				mov bx, offset saved_color
+				push bx
 				mov bx, offset dots
 				push bx
-				mov bx, offset dot_amount
+				mov bx, offset selected_color
+				push [word ptr bx]
+				push di
+				mov bx, offset selected
+				push bx
+				call select
+			jmp keyboard
+			
+			only_deselect:
+				mov bx, offset dots
+				push bx
+				mov bx, offset saved_color
+				push [word ptr bx]
+				mov bx, offset selected
+				push bx
+				call deselect
+			jmp keyboard
+			
+			add_select:
+				mov bx, offset saved_color
+				push bx
+				mov bx, offset dots
+				push bx
+				mov bx, offset selected_color
+				push [word ptr bx]
+				push di
+				mov bx, offset selected
+				push bx
+				call select
+			jmp keyboard
+			
+			add_stick:
+				mov [word ptr stick_handle], 0
+				
+				push [word ptr selected]
+				push di
+				push [word ptr stick_color]
+				mov bx, offset sticks
+				push bx
+				mov bx, offset stick_amount
 				push bx
 				call array_add
-			
-			jmp sandbox_end
-			
-		no_left:
-		mov bx, offset left
-		push bx
-		mov bx, offset left_prev
-		push bx
-		mov bx, 0
-		push bx
-		call left_click
-		pop bx
+				
+				; deselect
+				mov bx, offset dots
+				push bx
+				mov bx, offset saved_color
+				push [word ptr bx]
+				mov bx, offset selected
+				push bx
+				call deselect
+			jmp keyboard
+		
+		; check keyboard input
+		keyboard:
+			; check if a key is pressed
+				mov ax, 100h
+				int 16h
+				jz sandbox_end
+				
+				; if a key is pressed, get pressed key
+				mov ax, 0
+				int 16h
+				
+				cmp al, 13
+				je keyboard_enter
+				cmp al, ' '
+				je keyboard_space
+				cmp al, 8
+				je keyboard_backspace
+				jmp sandbox_end
+				
+				keyboard_enter:
+					mov [mode], 1
+					jmp sandbox_end
+				
+				keyboard_space:
+					cmp [word ptr selected], 0
+					je sandbox_end
+					xor [word ptr stick_handle], 1
+					jmp sandbox_end
+				
+				keyboard_backspace:
+					cmp [word ptr selected], 0
+					je sandbox_end
+					
+					mov di, [word ptr selected]
+					mov bx, offset dots
+					push bx
+					push di
+					call array_access
+					pop di
+					
+					mov dx, [locked_color]
+					cmp [di+4], dx
+					je keyboard_backspace_deselect
+						mov [di+4], dx
+						mov [word ptr selected], 0
+						jmp sandbox_end
+					keyboard_backspace_deselect:
+						mov dx, [dot_color]
+						mov [di+4], dx
+						mov [word ptr selected], 0
+						jmp sandbox_end
 		
 		sandbox_end:
-		; manage selected dots
-		mov bx, offset locked_color
-		push [word ptr bx]
-		mov bx, offset dot_color
-		push [word ptr bx]
-		mov bx, offset selected
-		push bx
-		push [stick_color]
-		mov bx, offset sticks
-		push bx
-		mov bx, offset stick_amount
-		push bx
-		mov bx, offset dots
-		push bx
-		call selected_manage
 		
-		; render
+		; clear and render
+		call clear
 		mov bx, offset dots_wall_prev
 		push bx
 		mov bx, offset dots_prev
@@ -1857,26 +1865,26 @@ start:
 		mov ax, 1
 		int 33h
 		
-		; copy dots to prev dots
-		mov bx, [dot_amount]
-		push bx
-		mov bx, offset dots
-		push bx
-		mov bx, offset dots_prev
-		push bx
-		call copy_dots
-		
-		pop ax
-		cmp al, 10b
+		; check mode
+		mov bx, offset mode
+		mov ax, 1
+		cmp [bx], ax
 		je sandbox_after
 		jmp sandbox
 	sandbox_after:
 	
-	mov [mode], 1
-	
 	; hide mouse
 	mov ax, 2
 	int 33h
+	
+	; deselect
+	mov bx, offset dots
+	push bx
+	mov bx, offset saved_color
+	push [word ptr bx]
+	mov bx, offset selected
+	push bx
+	call deselect
 	
 	; copy dots to prev dots
 	mov bx, [dot_amount]
@@ -1902,12 +1910,6 @@ start:
 	
 	; simulation loop
 	simulation:
-		; get mouse input
-		mov ax, 3
-		int 33h
-		mov ax, bx
-		and ax, 1b
-		
 		; simulation
 		mov bx, offset locked_color
 		push [word ptr bx]
@@ -1955,7 +1957,16 @@ start:
 		
 		call delay_physics
 		
-		cmp ax, 1b
+		; check if key pressed
+		mov ax, 100h
+		int 16h
+		jz simulation
+		
+		; if a key is pressed, get pressed key
+		mov ax, 0
+		int 16h
+		
+		cmp al, 13
 		jne simulation
 	
 	end_program:
@@ -1971,8 +1982,7 @@ END start
 ; TODO
 
 ; BUGS
-; fix locking
-; fix selection
+; fix locking physics
 
 ; SCREENS
 ; make starting screen
@@ -1980,6 +1990,7 @@ END start
 ; make control panel
 
 ; OPTIONAL
+; add double buffering
 ; add decimal point values
 ; add templates
 ; increase screen size
