@@ -1353,29 +1353,51 @@ proc physics_sticks
 				; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
 		; -------------------------------
 		
+		locking:
 		push ax
 		push bx
-			mov bx, [bp+6]
-			push bx
-			push cx
-			call array_access
-			pop bx
-			mov ax, [bx+4]
-			cmp ax, [bp+18]
-			je a_locked
-			
-				mov bx, [bp+10]
+			; get dots in memory
+				mov bx, [bp+6]
 				push bx
 				push cx
 				call array_access
 				pop bx
-				mov ax, [bx+4]
+				mov di, [bx]
+				mov si, [bx+2]
+				
+				mov bx, [bp+10]
+				push bx
+				push di
+				call array_access
+				pop di
+				
+				push bx
+				push si
+				call array_access
+				pop si
+			
+			mov ax, [di+4]
+			cmp ax, [bp+18]
+			je a_locked
+			
+				mov ax, [si+4]
 				cmp ax, [bp+18]
 				jne b_not_locked
-					sal eax, 1
-					sal edx, 1
+					mov bx, [bp+12]
 					
-					jmp b_check
+					mov [bx], eax
+					fld [dword ptr bx]
+					fld [dword ptr bx]
+					fadd 
+					fstp [dword ptr bx]
+					mov eax, [bx]
+					
+					mov [bx], edx
+					fld [dword ptr bx]
+					fld [dword ptr bx]
+					fadd 
+					fstp [dword ptr bx]
+					mov edx, [bx]
 				
 				b_not_locked:
 					; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
@@ -1397,16 +1419,24 @@ proc physics_sticks
 					jmp b_check
 			
 			a_locked:
-				sal eax, 1
-				sal edx, 1
+				mov bx, [bp+12]
+				
+				mov [bx], eax
+				fld [dword ptr bx]
+				fld [dword ptr bx]
+				fadd 
+				fstp [dword ptr bx]
+				mov eax, [bx]
+				
+				mov [bx], edx
+				fld [dword ptr bx]
+				fld [dword ptr bx]
+				fadd 
+				fstp [dword ptr bx]
+				mov edx, [bx]
 			
 			b_check:
-				mov bx, [bp+10]
-				push bx
-				push cx
-				call array_access
-				pop bx
-				mov ax, [bx+4]
+				mov ax, [si+4]
 				cmp ax, [bp+18]
 				je b_locked
 					
@@ -1980,9 +2010,6 @@ exit:
 END start
 
 ; TODO
-
-; BUGS
-; fix locking physics
 
 ; SCREENS
 ; make starting screen
