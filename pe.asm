@@ -38,8 +38,10 @@ right_prev dw 0
 ; fpu
 fpu dd ?
 
-; nuclear (no clear) mode
+; settings
 nuclear dw 0
+gravity dw 1
+search_sens dw 2
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -135,32 +137,6 @@ proc array_access
 	pop bp
 	ret 2
 endp array_access
-
-; input: dots start, dot position in array
-; output: none
-proc display_dot
-	push bp
-	mov bp, sp
-	push ax
-	push bx
-	push cx
-	
-	push [word ptr bp+6]
-	push [word ptr bp+4]
-	call array_access
-	pop bx
-	
-	push [word ptr bx]
-	push [word ptr bx+2]
-	push [word ptr bx+4]
-	call draw_dot
-	
-	pop cx
-	pop bx
-	pop ax
-	pop bp
-	ret 4
-endp display_dot
 
 ; input: dots start, dot position in array, size of square
 ; output: none
@@ -542,7 +518,7 @@ proc array_add
 	ret 10
 endp array_add
 
-; input: dot array start, x lookup, y lookup
+; input: search sensitivity, dot size, dot array start, x lookup, y lookup
 ; output: start of element in memory; 0 if no element is selected
 proc search_dots_by_position
 	push bp
@@ -552,6 +528,10 @@ proc search_dots_by_position
 	push cx
 	push dx
 	push di
+	push si
+	
+	mov si, [bp+10]
+	add si, [bp+12]
 	
 	; set default value for output
 	mov dx, 0
@@ -562,7 +542,7 @@ proc search_dots_by_position
 	add bx, 6
 	
 	mov cx, [bp+6]
-	sub cx, 2
+	sub cx, si
 	search_x_loop:
 		inc cx
 		
@@ -571,7 +551,7 @@ proc search_dots_by_position
 			push cx
 			
 			mov cx, [bp+4]
-			sub cx, 2
+			sub cx, si
 			search_y_loop:
 			inc cx
 			
@@ -590,12 +570,16 @@ proc search_dots_by_position
 				jmp end_search
 			
 			search_y_loop_end:
-			cmp cx, [bp+4]
+			mov dx, [bp+4]
+			add dx, si
+			cmp cx, dx
 			jbe search_y_loop
 		
 		pop cx
-		search_x_loop_end:
-		cmp cx, [bp+6]
+		search_x_loop_end:\
+		mov dx, [bp+6]
+		add dx, si
+		cmp cx, dx
 		jbe search_x_loop
 	
 	mov ax, 321
@@ -607,15 +591,16 @@ proc search_dots_by_position
 	je end_end_search
 	
 	end_end_search:
-	mov [bp+8], dx
+	mov [bp+12], dx
 	
+	pop si
 	pop di
 	pop dx
 	pop cx
 	pop bx
 	pop ax
 	pop bp
-	ret 4
+	ret 8
 endp search_dots_by_position
 
 ; input: prev dots start location in memory, dots start location in memory, dot's element number in array
@@ -775,7 +760,7 @@ proc wall
 	wall_x_left:
 		mov cx, 2
 		cmp ax, cx
-		jae wall_x_right
+		jge wall_x_right
 		
 		mov ax, 2
 		mov cx, ax
@@ -793,7 +778,7 @@ proc wall
 	wall_y_up:
 		mov cx, 2
 		cmp dx, cx
-		jae wall_y_down
+		jge wall_y_down
 		
 		mov dx, 2
 		mov cx, dx
@@ -825,7 +810,7 @@ proc wall
 	ret 6
 endp wall
 
-; input: locked color, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
+; input: gravity, locked color, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
 ; output: none
 proc physics_dots
 	push bp
@@ -874,7 +859,7 @@ proc physics_dots
 		sal dx, 1
 		sub dx, [bx+2]
 		; gravity
-		add dx, 1
+		add dx, [bp+14]
 		
 		push [word ptr bp+10]
 		push cx
@@ -907,7 +892,7 @@ proc physics_dots
 	pop bx
 	pop ax
 	pop bp
-	ret 10
+	ret 12
 endp physics_dots
 
 ; input: 16 bit padding, number (16 bit)
@@ -1477,13 +1462,14 @@ proc physics_sticks
 	ret 16
 endp physics_sticks
 
-; input: locked color, stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; input: gravity, locked color, stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
 	push bp
 	mov bp, sp
 	push cx
 	
+	push [word ptr bp+22]
 	push [word ptr bp+20]
 	push [word ptr bp+14]
 	push [word ptr bp+12]
@@ -1506,7 +1492,7 @@ proc physics
 	
 	pop cx
 	pop bp
-	ret 20
+	ret 22
 endp physics
 
 ; input: button's position in memory, previous button's position in memory, new button
@@ -1735,6 +1721,10 @@ start:
 			jne keyboard
 			
 			; check if a dot is pressed
+			mov bx, offset search_sens
+			push [word ptr bx]
+			mov bx, offset dot_size
+			push [word ptr bx]
 			mov bx, offset dots
 			push bx
 			push cx
@@ -1941,6 +1931,8 @@ start:
 	; simulation loop
 	simulation:
 		; simulation
+		mov bx, offset gravity
+		push [word ptr bx]
 		mov bx, offset locked_color
 		push [word ptr bx]
 		mov bx, offset sticks_length
@@ -2020,5 +2012,4 @@ END start
 ; add double buffering
 ; add decimal point values
 ; add templates
-; increase screen size
 ; sans. (?)
