@@ -42,10 +42,233 @@ fpu dd ?
 nuclear dw 0
 gravity dw 1
 search_sens dw 2
-; -------------------------------------------------------------------------------------
-; -------------------------------------------------------------------------------------
 
+; bmp display
+current_file dw 0
+file_header db 54 dup (0)
+file_palette db 256*4 dup (0)
+file_line db 320 dup (0)
+
+; bmp file names
+file_title db 'pe_title.bmp', 0
+file_how1 db 'pe_how1.bmp', 0
+file_how2 db 'pe_how2.bmp', 0
+
+; button borders
+; x1, y1, x2, y2
+title_start dw 112, 64, 206, 97
+title_how dw 57, 102, 262, 134
+title_exit dw 110, 141, 208, 169
+how2_menu dw 85, 173, 233, 196
+; -------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------
 CODESEG
+
+; input: file name in memory
+; output: file handle
+proc bmp_open
+	push bp
+	mov bp, sp
+	push ax
+	push dx
+	
+	; open file
+	mov ax, 3D00h
+	mov dx, [bp+4]
+	int 21h
+	
+	; file handle
+	mov [bp+4], ax
+	
+	pop dx
+	pop ax
+	pop bp
+	ret
+endp bmp_open
+
+; input: file handle, file header in memory
+; output: file handle
+proc bmp_header
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	
+	; read header
+	mov ax, 3f00h
+	mov bx, [bp+6]
+	mov cx, 54
+	mov dx, [bp+4]
+	int 21h
+	
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop bp
+	ret 2
+endp bmp_header
+
+; input: file handle, file palette in memory
+; output: file handle
+proc bmp_palette
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	
+	; read palette
+	mov ax, 3f00h
+	mov bx, [bp+6]
+	mov cx, 400h
+	mov dx, [bp+4]
+	int 21h
+	
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop bp
+	ret 2
+endp bmp_palette
+
+; input: file palette in memory
+; output: none
+proc palette
+	push bp
+	mov bp, sp
+	push ax
+	push cx
+	push dx
+	push si
+	
+	mov si, [bp+4]
+	mov cx, 256
+	
+	; copy starting index
+	mov dx, 3C8h
+	mov al, 0
+	out dx, al
+	
+	; copy palette
+	inc dx
+	palette_loop:
+		; red
+		mov al, [si+2]
+		shr al, 2
+		out dx, al
+		
+		; green
+		mov al, [si+1]
+		shr al, 2
+		out dx, al
+		
+		; blue
+		mov al, [si]
+		shr al, 2
+		out dx, al
+		
+		add si, 4
+	loop palette_loop
+	
+	pop si
+	pop dx
+	pop cx
+	pop ax
+	pop bp
+	ret 2
+endp palette
+
+; input: file handle, file line in memory
+; output: file handle
+proc bmp_bitmap
+	push bp
+	mov bp, sp
+	push ax
+	push cx
+	push dx
+	push di
+	push si
+	
+	mov cx, 200
+	bitmap_loop:
+		push cx
+		
+		; di = cx*320
+		mov di,cx
+		shl cx, 6
+		shl di, 8
+		add di, cx
+		
+		; read line
+		mov ax, 3f00h
+		mov cx, 320
+		mov bx, [bp+6]
+		mov dx, [bp+4]
+		int 21h
+		
+		; copy line to screen
+		cld
+		mov cx, 320
+		mov si, [bp+4]
+		rep movsb
+		
+		pop cx
+	loop bitmap_loop
+	
+	pop si
+	pop di
+	pop dx
+	pop cx
+	pop ax
+	pop bp
+	ret 2
+endp bmp_bitmap
+
+; input: file handle
+; output: none
+proc bmp_close
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	
+	; close file
+	mov ax, 3e00h
+	mov bx, [bp+4]
+	int 21h
+	
+	pop bx
+	pop ax
+	pop bp
+	ret 2
+endp bmp_close
+
+; input: file name in memory, file header in memory, file palette in memory, file line in memory
+; output: none
+proc display_bmp
+	push bp
+	mov bp, sp
+	
+	push [word ptr bp+10]
+	call bmp_open
+	push [word ptr bp+8]
+	call bmp_header
+	push [word ptr bp+6]
+	call bmp_palette
+	push [word ptr bp+6]
+	call palette
+	push [word ptr bp+4]
+	call bmp_bitmap
+	call bmp_close
+	
+	pop bp
+	ret 8
+endp display_bmp
 
 ; input: none
 ; output: none
@@ -1614,7 +1837,7 @@ proc deselect
 	
 	push [word ptr bp+8]
 	mov bx, [bp+4]
-	push [bx]
+	push [word ptr bx]
 	call array_access
 	pop di
 	
@@ -1629,7 +1852,58 @@ proc deselect
 	pop bp
 	ret 6
 endp deselect
+
+; input: mouse x, mouse y, button border in memory
+; output: 1 if pressed, 0 if not
+proc button
+	push bp
+	mov bp, sp
+	push ax
+	push bx
+	push cx
+	push dx
+	push di
+	push si
 	
+	; set default value
+	mov cx, 0
+	
+	; load values
+	mov bx, [bp+4]
+	mov ax, [bp+8]
+	mov dx, [bp+6]
+	
+	; check x
+	mov di, [bx]
+	mov si, [bx+4]
+	cmp ax, di
+	jl button_exit
+	cmp ax, si
+	jg button_exit
+	
+	; check y
+	mov di, [bx+2]
+	mov si, [bx+6]
+	cmp dx, di
+	jl button_exit
+	cmp dx, si
+	jg button_exit
+	
+	mov dx, 1
+	
+	button_exit:
+	mov [bp+8], cx
+	
+	pop si
+	pop di
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	pop bp
+	ret 4
+endp button
+
 start:
 	mov ax, @data
 	mov ds, ax
@@ -1647,22 +1921,122 @@ start:
 		mov ax, 1
 		int 33h
 	
-	; initial render
-		mov bx, offset dots_wall_prev
+	; openning screens
+	mov [current_file], offset file_title
+	screens:
+		mov bx, offset current_file
+		push [word ptr bx]
+		mov bx, offset file_header
 		push bx
-		mov bx, offset dots_prev
+		mov bx, offset file_palette
 		push bx
-		mov bx, offset dots
+		mov bx, offset file_line
 		push bx
-		mov bx, [dot_amount]
-		push bx
-		mov bx, [dot_size]
-		push bx
-		mov bx, offset sticks
-		push bx
-		mov bx, [stick_amount]
-		push bx
-		call render
+		call display_bmp
+		
+		screens_wait:
+			; check for escape
+			mov ax, 100h
+			int 16h
+			jz screen_title
+			mov ax, 0
+			int 16h
+			cmp al, 27
+			jne screen_title
+				mov ax, 2
+				int 10h
+				mov ax, 4c00h
+				int 21h			
+			
+			screen_title:
+			cmp [current_file], offset file_title
+			jne screen_how1
+				mov ax, 3
+				int 33h
+				mov ax, bx
+				and ax, 1b
+				cmp ax, 1
+				jne screens_wait
+				
+				screen_title_start:
+					push cx
+					push dx
+					mov bx, offset title_start
+					push bx
+					call button
+					pop bx
+					
+					cmp bx, 1
+					jne screen_title_how
+						jmp sandbox
+				
+				screen_title_how:
+					sar cx, 1
+					push cx
+					push dx
+					mov bx, offset title_how
+					push bx
+					call button
+					pop bx
+					
+					cmp bx, 1
+					jne screen_title_exit
+						mov [current_file], offset file_how1
+						jmp screens
+				
+				screen_title_exit:
+					push cx
+					push dx
+					mov bx, offset title_exit
+					push bx
+					call button
+					pop bx
+					
+					cmp bx, 1
+					jne screens_wait
+						mov ax, 2
+						int 10h
+						mov ax, 4c00h
+						int 21h
+				
+			screen_how1:
+			cmp [current_file], offset file_how1
+			jne screen_how2
+				; check for enter
+				mov ax, 100h
+				int 16h
+				jz screens_wait
+				mov ax, 0
+				int 16h
+				cmp al, 13
+				jne screens_wait
+				
+				mov [current_file], offset file_how2
+				jmp screens
+				
+			screen_how2:
+			cmp [current_file], offset file_how2
+			jne screens_wait
+				mov ax, 3
+				int 33h
+				mov ax, bx
+				and ax, 1b
+				cmp ax, 1
+				jne screens_wait
+				
+				push cx
+				push dx
+				mov bx, offset how2_menu
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne screens_wait
+				mov [current_file], offset file_title
+				jmp screens
+
+		jmp screens_wait
 	
 	; sandbox loop
 	sandbox:
@@ -1811,7 +2185,7 @@ start:
 		
 		; check keyboard input
 		keyboard:
-			; check if a key is pressed
+				; check if a key is pressed
 				mov ax, 100h
 				int 16h
 				jz sandbox_end
@@ -1820,6 +2194,13 @@ start:
 				mov ax, 0
 				int 16h
 				
+				cmp al, 27
+				jne sandbox_no_escape
+					mov ax, 2
+					int 10h
+					mov ax, 4c00h
+					int 21h
+				sandbox_no_escape:
 				cmp al, 13
 				je keyboard_enter
 				cmp al, ' '
@@ -1863,8 +2244,14 @@ start:
 		
 		sandbox_end:
 		
-		; clear and render
+		; clear
+		mov bx, 1
+		cmp [nuclear], bx
+		je sandbox_skip_clear
 		call clear
+		sandbox_skip_clear:
+		
+		; render
 		mov bx, offset dots_wall_prev
 		push bx
 		mov bx, offset dots_prev
@@ -1956,9 +2343,9 @@ start:
 		; clear screen
 		mov cx, 1
 		cmp [nuclear], cx
-		je skip_clear
+		je simulation_skip_clear
 		call clear
-		skip_clear:
+		simulation_skip_clear:
 		
 		; render
 		mov bx, offset dots_wall_prev
@@ -1988,6 +2375,8 @@ start:
 		mov ax, 0
 		int 16h
 		
+		cmp al, 27
+		je end_program
 		cmp al, 13
 		jne simulation
 	
