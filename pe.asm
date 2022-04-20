@@ -30,8 +30,8 @@ mode dw 0
 stick_handle dw 0
 selected dw 0
 saved_color dw 0
-left dw 0
-left_prev dw 0
+left dw 1
+left_prev dw 1
 right dw 0
 right_prev dw 0
 
@@ -1889,7 +1889,7 @@ proc button
 	cmp dx, si
 	jg button_exit
 	
-	mov dx, 1
+	mov cx, 1
 	
 	button_exit:
 	mov [bp+8], cx
@@ -1924,6 +1924,10 @@ start:
 	; openning screens
 	mov [current_file], offset file_title
 	screens:
+		; hide mouse
+		mov ax, 2
+		int 33h
+		
 		mov bx, offset current_file
 		push [word ptr bx]
 		mov bx, offset file_header
@@ -1933,6 +1937,10 @@ start:
 		mov bx, offset file_line
 		push bx
 		call display_bmp
+		
+		; show mouse
+		mov ax, 1
+		int 33h
 		
 		screens_wait:
 			; check for escape
@@ -1951,8 +1959,10 @@ start:
 			screen_title:
 			cmp [current_file], offset file_title
 			jne screen_how1
+				; check mouse
 				mov ax, 3
 				int 33h
+				sar cx, 1
 				mov ax, bx
 				and ax, 1b
 				cmp ax, 1
@@ -1968,10 +1978,18 @@ start:
 					
 					cmp bx, 1
 					jne screen_title_how
+					; hide mouse
+					mov ax, 2
+					int 33h
+					
+					call clear
+					
+					; show mouse
+					mov ax, 1
+					int 33h
 						jmp sandbox
 				
 				screen_title_how:
-					sar cx, 1
 					push cx
 					push dx
 					mov bx, offset title_how
@@ -2017,8 +2035,10 @@ start:
 			screen_how2:
 			cmp [current_file], offset file_how2
 			jne screens_wait
+				; check mouse
 				mov ax, 3
 				int 33h
+				sar cx, 1
 				mov ax, bx
 				and ax, 1b
 				cmp ax, 1
@@ -2392,13 +2412,14 @@ END start
 
 ; TODO
 
+; BUGS
+; jittering
+; fix palette before simulation start
+
 ; SCREENS
-; make starting screen
-; make instructions
+; end screen
 ; make control panel
 
 ; OPTIONAL
-; add double buffering
 ; add decimal point values
 ; add templates
-; sans. (?)
