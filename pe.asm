@@ -5,25 +5,18 @@ STACK 100h
 DATASEG
 
 ; -------------------------------------------------------------------------------------
+; -------------------------------- DATA MANAGEMENT ------------------------------------
 ; -------------------------------------------------------------------------------------
 ; the dots array is sorted in the following order: x position, y position, color
 dot_amount dw 0
-dot_size dw 1
 dots dw 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
 
 ; the sticks array is sorted in the following order: first dot, second dot, color
 stick_amount dw 0
-stick_size dw 1
 sticks dw 100h dup (?, ?, ?), 0
 sticks_length dw 100h dup (?, ?, ?), 0
-
-; colors
-dot_color dw 2
-selected_color dw 7
-locked_color dw 56
-stick_color dw 18
 
 ; mode: 0 -> sandbox simulation setup, 1 -> run simulation
 mode dw 0
@@ -34,15 +27,14 @@ left dw 1
 left_prev dw 1
 right dw 0
 right_prev dw 0
-
-; fpu
 fpu dd ?
+default_palette db 256*4 dup (0)
+; -------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------
 
-; settings
-nuclear dw 0
-gravity dw 1
-search_sens dw 2
-
+; -------------------------------------------------------------------------------------
+; --------------------------------- FILE SETTINGS -------------------------------------
+; -------------------------------------------------------------------------------------
 ; bmp display
 current_file dw 0
 file_header db 54 dup (0)
@@ -62,6 +54,24 @@ title_exit dw 110, 141, 208, 169
 how2_menu dw 85, 173, 233, 196
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
+
+; -------------------------------------------------------------------------------------
+; ----------------------------- COSTUMISABLE SETTINGS ---------------------------------
+; -------------------------------------------------------------------------------------
+; settings
+nuclear dw 0
+gravity dw 1
+dot_size dw 1
+search_sens dw 2
+
+; colors
+dot_color dw 1
+selected_color dw 1
+locked_color dw 1
+stick_color dw 1
+; -------------------------------------------------------------------------------------
+; -------------------------------------------------------------------------------------
+
 CODESEG
 
 ; input: file name in memory
@@ -2414,11 +2424,12 @@ END start
 
 ; BUGS
 ; jittering
-; fix palette before simulation start
+; add default computer palette
+; fix 0 dots selection
 
 ; SCREENS
 ; end screen
-; make control panel
+; control panel
 
 ; OPTIONAL
 ; add decimal point values
