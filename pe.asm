@@ -169,6 +169,47 @@ proc palette
 	ret 2
 endp palette
 
+; input: palette storage in memory
+; output: none
+proc read_palette
+	push bp
+	mov bp, sp
+	push ax cx dx si
+	
+	mov si, [bp+4]
+	mov cx, 256
+	
+	; copy starting index
+	mov dx, 3C7h
+	mov al, 0
+	out dx, al
+	
+	; copy palette
+	inc dx
+	inc dx
+	read_palette_loop:
+		; red
+		in al, dx
+		shl al, 2
+		mov [si+2], al
+		
+		; green
+		in al, dx
+		shl al, 2
+		mov [si+1], al
+		
+		; blue
+		in al, dx
+		shl al, 2
+		mov [si], al
+		
+		add si, 4
+	loop read_palette_loop
+	
+	pop si dx cx ax bp
+	ret 2
+endp read_palette
+
 ; input: file handle, file line in memory
 ; output: file handle
 proc bmp_bitmap
@@ -646,9 +687,6 @@ proc search_dots_by_position
 	mov si, [bp+10]
 	add si, [bp+12]
 	
-	; set default value for output
-	mov dx, 0
-	
 	mov bx, [bp+8]
 	sub bx, 6
 	search_loop:
@@ -689,7 +727,7 @@ proc search_dots_by_position
 			jbe search_y_loop
 		
 		pop cx
-		search_x_loop_end:\
+		search_x_loop_end:
 		mov dx, [bp+6]
 		add dx, si
 		cmp cx, dx
@@ -699,11 +737,8 @@ proc search_dots_by_position
 	cmp [bx], ax
 	jne search_loop
 	
+	mov dx, 0
 	end_search:
-	cmp dx, 0
-	je end_end_search
-	
-	end_end_search:
 	mov [bp+12], dx
 	
 	pop si di dx cx bx ax bp
@@ -802,7 +837,7 @@ proc render
 	ret 14
 endp render
 
-; input: wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
+; input: dot size, wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
 ; output: edited point's x, edited point's y, edited point's beforeUpdate x, edited point's beforeUpdate y
 proc wall
 	push bp
@@ -835,50 +870,54 @@ proc wall
 		pop bx
 	
 	wall_x_left:
-		mov cx, 2
+		mov cx, [bp+18]
 		cmp ax, cx
 		jge wall_x_right
 		
-		mov ax, 2
+		mov ax, [bp+18]
 		mov cx, ax
 		sub cx, [bx]
 		add di, cx
 	wall_x_right:
-		mov cx, 318
+		mov cx, 320
+		sub cx, [bp+18]
 		cmp ax, cx
 		jbe wall_y_up
 		
-		mov ax, 318
+		mov ax, 320
+		sub ax, [bp+18]
 		mov cx, ax
 		sub cx, [bx]
 		add di, cx
 	wall_y_up:
-		mov cx, 2
+		mov cx, [bp+18]
 		cmp dx, cx
 		jge wall_y_down
 		
-		mov dx, 2
+		mov dx, [bp+18]
 		mov cx, dx
 		sub cx, [bx+2]
 		add si, cx
 	wall_y_down:
-		mov cx, 198
+		mov cx, 200
+		sub cx, [bp+18]
 		cmp dx, cx
 		jbe wall_exit
 		
-		mov dx, 198
+		mov dx, 200
+		sub dx, [bp+18]
 		mov cx, dx
 		sub cx, [bx+2]
 		add si, cx
 	
 	wall_exit:
-	mov [bp+16], ax
-	mov [bp+14], dx
-	mov [bp+12], di
-	mov [bp+10], si
+	mov [bp+18], ax
+	mov [bp+16], dx
+	mov [bp+14], di
+	mov [bp+12], si
 	
 	pop si di dx cx bx ax bp
-	ret 6
+	ret 8
 endp wall
 
 ; input: gravity, locked color, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
@@ -925,7 +964,7 @@ proc physics_dots
 		; gravity
 		add dx, [bp+14]
 		
-		push [word ptr bp+10] cx ax dx di si bx
+		push [word ptr bp+16] [word ptr bp+10] cx ax dx di si bx
 		call wall
 		pop si di dx ax
 		
@@ -941,7 +980,7 @@ proc physics_dots
 	loop physics_dots_loop
 	
 	pop si di dx cx bx ax bp
-	ret 12
+	ret 14
 endp physics_dots
 
 ; input: 16 bit padding, number (16 bit)
@@ -1090,7 +1129,7 @@ proc sticks_length_init
 	ret 10
 endp sticks_length_init
 
-; input: fpu in memory, wall dots start in memory, prev dots arrat start in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
+; input: dot size, fpu in memory, wall dots start in memory, prev dots arrat start in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
 ; output: none
 proc change
 	push bp
@@ -1159,9 +1198,7 @@ proc change
 		call array_access
 		pop bx
 		
-		push [word ptr bp+20] [word ptr bp+14] di si [word ptr bx] [word ptr bx+2]
-		
-		push [word ptr bp+18] [word ptr bp+14]
+		push [word ptr bp+24] [word ptr bp+20] [word ptr bp+14] di si [word ptr bx] [word ptr bx+2] [word ptr bp+18] [word ptr bp+14]
 		call array_access
 		call wall
 		pop si di dx ax
@@ -1178,10 +1215,10 @@ proc change
 		mov [bx+2], dx
 	
 	pop si di edx bx eax bp
-	ret 20
+	ret 22
 endp change
 
-; input: locked color, wall dots start in memory, prev dots start in memory, fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
+; input: dot size, locked color, wall dots start in memory, prev dots start in memory, fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
 ; output: none
 proc physics_sticks
 	push bp
@@ -1363,7 +1400,7 @@ proc physics_sticks
 				
 				b_not_locked:
 					; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
-					push [word ptr bp+12] [word ptr bp+16] [word ptr bp+14] [word ptr bp+10]
+					push [word ptr bp+20] [word ptr bp+12] [word ptr bp+16] [word ptr bp+14] [word ptr bp+10]
 						mov bx, [bp+6]
 						push bx cx
 						call array_access
@@ -1396,7 +1433,7 @@ proc physics_sticks
 				je b_locked
 					
 					; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
-					push [word ptr bp+12] [word ptr bp+16] [word ptr bp+14] [word ptr bp+10]
+					push [word ptr bp+20] [word ptr bp+12] [word ptr bp+16] [word ptr bp+14] [word ptr bp+10]
 						mov bx, [bp+6]
 						push bx cx
 						call array_access
@@ -1415,27 +1452,27 @@ proc physics_sticks
 	
 	physics_sticks_end:
 	pop si di edx ecx bx eax bp
-	ret 16
+	ret 18
 endp physics_sticks
 
-; input: gravity, locked color, stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
+; input: dot size, gravity, locked color, stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
 	push bp
 	mov bp, sp
 	push cx
 	
-	push [word ptr bp+22] [word ptr bp+20] [word ptr bp+14] [word ptr bp+12] [word ptr bp+10] [word ptr bp+8]
+	push [word ptr bp+24] [word ptr bp+22] [word ptr bp+20] [word ptr bp+14] [word ptr bp+12] [word ptr bp+10] [word ptr bp+8]
 	call physics_dots
 	
 	mov cx, 5
 		physics_loop_sticks:
-		push [word ptr bp+20] [word ptr bp+14] [word ptr bp+10] [word ptr bp+16] [word ptr bp+12] [word ptr bp+18] [word ptr bp+6] [word ptr bp+4]
+		push [word ptr bp+24] [word ptr bp+20] [word ptr bp+14] [word ptr bp+10] [word ptr bp+16] [word ptr bp+12] [word ptr bp+18] [word ptr bp+6] [word ptr bp+4]
 		call physics_sticks
 	loop physics_loop_sticks
 	
 	pop cx bp
-	ret 22
+	ret 24
 endp physics
 
 ; input: button's position in memory, previous button's position in memory, new button
@@ -1607,6 +1644,11 @@ start:
 		mov ax, 1
 		int 33h
 	
+	; save computer palette
+	mov bx, offset default_palette
+	push bx
+	call read_palette
+	
 	; openning screens
 	mov [current_file], offset file_title
 	screens:
@@ -1663,16 +1705,7 @@ start:
 					
 					cmp bx, 1
 					jne screen_title_how
-					; hide mouse
-					mov ax, 2
-					int 33h
-					
-					call clear
-					
-					; show mouse
-					mov ax, 1
-					int 33h
-						jmp sandbox
+					jmp sandbox_setup
 				
 				screen_title_how:
 					push cx dx
@@ -1739,6 +1772,23 @@ start:
 				jmp screens
 
 		jmp screens_wait
+	
+	sandbox_setup:
+		; hide mouse
+		mov ax, 2
+		int 33h
+		
+		call clear
+		
+		; show mouse
+		mov ax, 1
+		int 33h
+		
+		; restore palette
+		mov bx, offset default_palette
+		push bx
+		call palette
+		
 	
 	; sandbox loop
 	sandbox:
@@ -2017,6 +2067,8 @@ start:
 	; simulation loop
 	simulation:
 		; simulation
+		mov bx, offset dot_size
+		push [word ptr bx]
 		mov bx, offset gravity
 		push [word ptr bx]
 		mov bx, offset locked_color
@@ -2093,9 +2145,7 @@ END start
 
 ; BUGS
 ; jittering
-; add default computer palette
-; fix 0 dots selection
-; big dots display at top when at bottom
+; mouse color adding palettes
 
 ; SCREENS
 ; end screen
