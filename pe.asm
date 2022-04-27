@@ -56,7 +56,7 @@ how2_menu dw 85, 173, 233, 196
 ; -------------------------------------------------------------------------------------
 
 ; -------------------------------------------------------------------------------------
-; ----------------------------- COSTUMISABLE SETTINGS ---------------------------------
+; ----------------------------- COSTUMIZABLE SETTINGS ---------------------------------
 ; -------------------------------------------------------------------------------------
 ; settings
 nuclear dw 0
@@ -65,10 +65,10 @@ dot_size dw 1
 search_sens dw 2
 
 ; colors
-dot_color dw 1
-selected_color dw 1
-locked_color dw 1
-stick_color dw 1
+dot_color dw 12
+selected_color dw 29
+locked_color dw 90
+stick_color dw 231
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -79,8 +79,7 @@ CODESEG
 proc bmp_open
 	push bp
 	mov bp, sp
-	push ax
-	push dx
+	push ax dx
 	
 	; open file
 	mov ax, 3D00h
@@ -90,9 +89,7 @@ proc bmp_open
 	; file handle
 	mov [bp+4], ax
 	
-	pop dx
-	pop ax
-	pop bp
+	pop dx ax bp
 	ret
 endp bmp_open
 
@@ -101,10 +98,7 @@ endp bmp_open
 proc bmp_header
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
+	push ax bx cx dx
 	
 	; read header
 	mov ax, 3f00h
@@ -113,11 +107,7 @@ proc bmp_header
 	mov dx, [bp+4]
 	int 21h
 	
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop dx cx bx ax bp
 	ret 2
 endp bmp_header
 
@@ -126,10 +116,7 @@ endp bmp_header
 proc bmp_palette
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
+	push ax bx cx dx
 	
 	; read palette
 	mov ax, 3f00h
@@ -138,11 +125,7 @@ proc bmp_palette
 	mov dx, [bp+4]
 	int 21h
 	
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop dx cx bx ax bp
 	ret 2
 endp bmp_palette
 
@@ -151,10 +134,7 @@ endp bmp_palette
 proc palette
 	push bp
 	mov bp, sp
-	push ax
-	push cx
-	push dx
-	push si
+	push ax cx dx si
 	
 	mov si, [bp+4]
 	mov cx, 256
@@ -185,11 +165,7 @@ proc palette
 		add si, 4
 	loop palette_loop
 	
-	pop si
-	pop dx
-	pop cx
-	pop ax
-	pop bp
+	pop si dx cx ax bp
 	ret 2
 endp palette
 
@@ -198,11 +174,7 @@ endp palette
 proc bmp_bitmap
 	push bp
 	mov bp, sp
-	push ax
-	push cx
-	push dx
-	push di
-	push si
+	push ax cx dx di si
 	
 	mov cx, 200
 	bitmap_loop:
@@ -230,12 +202,7 @@ proc bmp_bitmap
 		pop cx
 	loop bitmap_loop
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop ax
-	pop bp
+	pop si di dx cx ax bp
 	ret 2
 endp bmp_bitmap
 
@@ -244,17 +211,14 @@ endp bmp_bitmap
 proc bmp_close
 	push bp
 	mov bp, sp
-	push ax
-	push bx
+	push ax bx
 	
 	; close file
 	mov ax, 3e00h
 	mov bx, [bp+4]
 	int 21h
 	
-	pop bx
-	pop ax
-	pop bp
+	pop bx ax bp
 	ret 2
 endp bmp_close
 
@@ -324,10 +288,7 @@ endp delay_physics
 proc draw_dot
 	push bp
 	mov bp, sp
-	push ax
-	push cx
-	push dx
-	push di
+	push ax cx dx di
 	
 	; get screen position - y*320+x
 	mov ax, [bp+6]
@@ -341,11 +302,7 @@ proc draw_dot
 	mov ax, [bp+4]
 	mov [es:di], al
 	
-	pop di
-	pop dx
-	pop cx
-	pop ax
-	pop bp
+	pop di dx cx ax bp
 	ret 6
 endp draw_dot
 
@@ -354,8 +311,7 @@ endp draw_dot
 proc array_access
 	push bp
 	mov bp, sp
-	push ax
-	push cx
+	push ax cx
 	
 	; get starting position of element information in array
 	mov ax, [bp+4]
@@ -365,9 +321,7 @@ proc array_access
 	add ax, [bp+6]
 	mov [bp+6], ax
 	
-	pop cx
-	pop ax
-	pop bp
+	pop cx ax bp
 	ret 2
 endp array_access
 
@@ -376,14 +330,9 @@ endp array_access
 proc display_square
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
+	push ax bx cx dx di
 	
-	push [word ptr bp+8]
-	push [word ptr bp+6]
+	push [word ptr bp+8] [word ptr bp+6]
 	call array_access
 	pop bx
 	
@@ -412,33 +361,24 @@ proc display_square
 	shl cx, 1
 	inc cx
 	column:
-		push ax
-		push cx
+		push ax cx
 		
 		mov cx, [bp+4]
 		shl cx, 1
 		inc cx
 		row:
-			push ax
-			push dx
-			push bx
+			push ax dx bx
 			call draw_dot
 			
 			inc ax
 		loop row
 		
-		pop cx
-		pop ax
+		pop cx ax
 	inc dx
 	loop column
 	
 	cant_display:
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop di dx cx bx ax bp
 	ret 6
 endp display_square
 
@@ -448,12 +388,7 @@ endp display_square
 proc naive_algo
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push ax bx cx dx di si
 	
 	; get xy mode
 	mov bx, [bp+14]
@@ -510,13 +445,7 @@ proc naive_algo
 		cmp cx, [bp+8]
 		jne naive_algo_loop
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop si di dx cx bx ax bp
 	ret 16
 endp naive_algo
 
@@ -525,9 +454,7 @@ endp naive_algo
 proc naive_algo_setup
 	push bp
 	mov bp, sp
-	push ax
-	push di
-	push si
+	push ax di si
 	
 	mov ax, [bp+12]
 	cmp ax, [bp+8]
@@ -592,62 +519,41 @@ proc naive_algo_setup
 	cmp di, si
 	jb main_else
 		
-		push di
-		push si
+		push di si
 		mov ax, 0
 		push ax
 		mov ax, [bp+12]
 		cmp ax, [bp+8]
 		jb main_x_else
 		
-			push [word ptr bp+8]
-			push [word ptr bp+6]
-			push [word ptr bp+12]
-			push [word ptr bp+10]
-			push [word ptr bp+4]
+			push [word ptr bp+8] [word ptr bp+6] [word ptr bp+12] [word ptr bp+10] [word ptr bp+4]
 			call naive_algo
 		jmp naive_algo_setup_end
 		
 		main_x_else:
-			push [word ptr bp+12]
-			push [word ptr bp+10]
-			push [word ptr bp+8]
-			push [word ptr bp+6]
-			push [word ptr bp+4]
+			push [word ptr bp+12] [word ptr bp+10] [word ptr bp+8] [word ptr bp+6] [word ptr bp+4]
 			call naive_algo
 	jmp naive_algo_setup_end
 	
 	main_else:
 		
-		push si
-		push di
+		push si di
 		mov ax, 1
 		push ax
 		mov ax, [bp+10]
 		cmp ax, [bp+6]
 		jb main_y_else
 		
-			push [word ptr bp+6]
-			push [word ptr bp+8]
-			push [word ptr bp+10]
-			push [word ptr bp+12]
-			push [word ptr bp+4]
+			push [word ptr bp+6] [word ptr bp+8] [word ptr bp+10] [word ptr bp+12] [word ptr bp+4]
 			call naive_algo
 		jmp naive_algo_setup_end
 		
 		main_y_else:
-			push [word ptr bp+10]
-			push [word ptr bp+12]
-			push [word ptr bp+6]
-			push [word ptr bp+8]
-			push [word ptr bp+4]
+			push [word ptr bp+10] [word ptr bp+12] [word ptr bp+6] [word ptr bp+8] [word ptr bp+4]
 			call naive_algo
 	
 	naive_algo_setup_end:
-	pop si
-	pop di
-	pop ax
-	pop bp
+	pop si di ax bp
 	ret 10
 endp naive_algo_setup
 
@@ -656,12 +562,7 @@ endp naive_algo_setup
 proc display_stick
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push ax bx cx dx di si
 	
 	push [word ptr bp+8]
 	push [word ptr bp+6]
@@ -671,8 +572,7 @@ proc display_stick
 	; get first dot's x and y positions
 	push bx
 	mov bx, [bx]
-	push [word ptr bp+4]
-	push bx
+	push [word ptr bp+4] bx
 	call array_access
 	pop bx
 	mov cx, [bx]
@@ -683,8 +583,7 @@ proc display_stick
 	add bx, 2
 	push bx
 	mov bx, [bx]
-	push [word ptr bp+4]
-	push bx
+	push [word ptr bp+4] bx
 	call array_access
 	pop bx
 	mov di, [bx]
@@ -703,20 +602,10 @@ proc display_stick
 	; ax - color
 	; ------------
 	
-	push cx
-	push dx
-	push di
-	push si
-	push ax
+	push cx dx di si ax
 	call naive_algo_setup
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop si di dx cx bx ax bp
 	ret 6
 endp display_stick
 
@@ -725,16 +614,14 @@ endp display_stick
 proc array_add
 	push bp
 	mov bp, sp
-	push ax
-	push bx
+	push ax bx
 	
 	mov bx, [bp+4]
 	mov ax, [bx]
 	inc ax
 	mov [bx], ax
 	
-	push [word ptr bp+6]
-	push ax
+	push [word ptr bp+6] ax
 	call array_access
 	pop bx
 	
@@ -745,9 +632,7 @@ proc array_add
 	mov ax, [bp+8]
 	mov [bx+4], ax
 	
-	pop bx
-	pop ax
-	pop bp
+	pop bx ax bp
 	ret 10
 endp array_add
 
@@ -756,12 +641,7 @@ endp array_add
 proc search_dots_by_position
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push ax bx cx dx di si
 	
 	mov si, [bp+10]
 	add si, [bp+12]
@@ -826,13 +706,7 @@ proc search_dots_by_position
 	end_end_search:
 	mov [bp+12], dx
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop si di dx cx bx ax bp
 	ret 8
 endp search_dots_by_position
 
@@ -841,21 +715,15 @@ endp search_dots_by_position
 proc check_dot_change
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
+	push ax bx cx dx di
 	
 	mov ax, 0
 	
-	push [word ptr bp+8]
-	push [word ptr bp+4]
+	push [word ptr bp+8] [word ptr bp+4]
 	call array_access
 	pop bx
 	
-	push [word ptr bp+6]
-	push [word ptr bp+4]
+	push [word ptr bp+6] [word ptr bp+4]
 	call array_access
 	pop di
 	
@@ -874,21 +742,14 @@ proc check_dot_change
 	
 	check_dot_change_exit:
 	mov [bp+8], ax
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop di dx cx bx ax bp
 	ret 4
 endp check_dot_change
 
 ; input: none
 ; output: none
 proc clear
-	push ax
-	push cx
-	push di
+	push ax cx di
 	
 	mov ax, 0
 	
@@ -898,9 +759,7 @@ proc clear
 		mov [es:di], ax
 	loop clear_loop
 	
-	pop di
-	pop cx
-	pop ax
+	pop di cx ax
 	ret
 endp clear
 
@@ -909,23 +768,18 @@ endp clear
 proc render
 	push bp
 	mov bp, sp
-	push bx
-	push cx
-	push di
+	push bx cx di
 	
 	mov cx, [bp+4]
 	render_sticks:
 		cmp cx, 0
 		je render_sticks_after
 		
-		push [word ptr bp+6]
-		push cx
+		push [word ptr bp+6] cx
 		call array_access
 		pop bx
 		
-		push [word ptr bp+6]
-		push cx
-		push [word ptr bp+12]
+		push [word ptr bp+6] cx [word ptr bp+12]
 		call display_stick
 		
 		dec cx
@@ -937,19 +791,14 @@ proc render
 		cmp cx, 0
 		je render_dots_after
 		
-		push [word ptr bp+12]
-		push cx
-		push [word ptr bp+8]
+		push [word ptr bp+12] cx [word ptr bp+8]
 		call display_square
 		
 		dec cx
 	jmp render_dots
 	render_dots_after:
 	
-	pop di
-	pop cx
-	pop bx
-	pop bp
+	pop di cx bx bp
 	ret 14
 endp render
 
@@ -958,12 +807,7 @@ endp render
 proc wall
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push ax bx cx dx di si
 	
 	mov ax, [bp+12]
 	mov dx, [bp+10]
@@ -1033,13 +877,7 @@ proc wall
 	mov [bp+12], di
 	mov [bp+10], si
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop si di dx cx bx ax bp
 	ret 6
 endp wall
 
@@ -1048,19 +886,13 @@ endp wall
 proc physics_dots
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push ax bx cx dx di si
 	
 	mov cx, [bp+4]
 	physics_dots_loop:
 		push cx
 		
-		push [word ptr bp+8]
-		push cx
+		push [word ptr bp+8] cx
 		call array_access
 		pop bx
 		
@@ -1074,8 +906,7 @@ proc physics_dots
 		mov di, ax
 		mov si, dx
 		
-		push [word ptr bp+6]
-		push cx
+		push [word ptr bp+6] cx
 		call array_access
 		pop bx
 		
@@ -1094,18 +925,9 @@ proc physics_dots
 		; gravity
 		add dx, [bp+14]
 		
-		push [word ptr bp+10]
-		push cx
-		push ax
-		push dx
-		push di
-		push si
-		push bx
+		push [word ptr bp+10] cx ax dx di si bx
 		call wall
-		pop si
-		pop di
-		pop dx
-		pop ax
+		pop si di dx ax
 		
 		mov [bx], di
 		mov [bx+2], si
@@ -1118,13 +940,7 @@ proc physics_dots
 		pop cx
 	loop physics_dots_loop
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop si di dx cx bx ax bp
 	ret 12
 endp physics_dots
 
@@ -1133,9 +949,7 @@ endp physics_dots
 proc msquare
 	push bp
 	mov bp, sp
-	push ax
-	push cx
-	push edx
+	push ax cx edx
 	
 	mov cx, [bp+4]
 	mov ax, cx
@@ -1144,10 +958,7 @@ proc msquare
 	mov dx, ax
 	mov [bp+4], edx
 	
-	pop edx
-	pop cx
-	pop ax
-	pop bp
+	pop edx cx ax bp
 	ret
 endp msquare
 
@@ -1156,8 +967,7 @@ endp msquare
 proc msqrt
 	push bp
 	mov bp, sp
-	push eax	
-	push di
+	push eax	 di
 	
 	mov eax, [bp+4]
 	mov di, [bp+8]
@@ -1170,9 +980,7 @@ proc msqrt
 	mov eax, [di]
 	mov [bp+6], eax
 	
-	pop di
-	pop eax
-	pop bp
+	pop di eax bp
 	ret 2
 endp msqrt
 
@@ -1181,10 +989,7 @@ endp msqrt
 proc distance
 	push bp
 	mov bp, sp
-	push eax
-	push edx
-	push di
-	push si
+	push eax edx di si
 	
 	xor eax, eax
 	xor edx, edx
@@ -1193,14 +998,12 @@ proc distance
 	mov si, [bp+6]
 	
 	; mov di, di*di
-	push di
-	push di
+	push di di
 	call msquare
 	pop eax
 	
 	; mov si, si*si
-	push si
-	push si
+	push si si
 	call msquare
 	pop edx
 	
@@ -1208,18 +1011,13 @@ proc distance
 	add eax, edx
 	
 	; mov ax, sqrt ax
-	push [word ptr bp+8]
-	push eax
+	push [word ptr bp+8] eax
 	call msqrt
 	pop eax
 	
 	mov [bp+6], eax
 	
-	pop si
-	pop di
-	pop edx
-	pop eax
-	pop bp
+	pop si di edx eax bp
 	ret 2
 endp distance
 
@@ -1228,12 +1026,7 @@ endp distance
 proc sticks_length_init
 	push bp
 	mov bp, sp
-	push eax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push eax bx cx dx di si
 	
 	mov cx, [bp+8]
 	sticks_length_init_loop:
@@ -1242,21 +1035,18 @@ proc sticks_length_init
 		
 		; get both dot's x and y location
 			mov bx, [bp+10]
-			push bx
-			push cx
+			push bx cx
 			call array_access
 			pop bx
 			mov di, [bx]
 			mov si, [bx+2]
 			
 			mov bx, [bp+6]
-			push bx
-			push di
+			push bx di
 			call array_access
 			pop di
 			
-			push bx
-			push si
+			push bx si
 			call array_access
 			pop si
 		
@@ -1283,14 +1073,11 @@ proc sticks_length_init
 				sub dx, [di+2]
 			sticks_length_init_dy_after:
 		
-		push [word ptr bp+12]
-		push ax
-		push dx
+		push [word ptr bp+12] ax dx
 		call distance
 		pop eax
 		
-		push [word ptr bp+4]
-		push cx
+		push [word ptr bp+4] cx
 		call array_access
 		pop bx
 		mov [bx], eax
@@ -1299,13 +1086,7 @@ proc sticks_length_init
 	jmp sticks_length_init_loop
 	
 	sticks_length_init_loop_exit:
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop eax
-	pop bp
+	pop si di dx cx bx eax bp
 	ret 10
 endp sticks_length_init
 
@@ -1314,16 +1095,11 @@ endp sticks_length_init
 proc change
 	push bp
 	mov bp, sp
-	push eax
-	push bx
-	push edx
-	push di
-	push si
+	push eax bx edx di si
 	
 	; final = position
 		; get first point location in memory
-		push [word ptr bp+16]
-		push [word ptr bp+14]
+		push [word ptr bp+16] [word ptr bp+14]
 		call array_access
 		pop bx
 		
@@ -1357,8 +1133,7 @@ proc change
 		mov edx, [bx]
 	
 	; get other point location in memory
-	push [word ptr bp+16]
-	push [word ptr bp+12]
+	push [word ptr bp+16] [word ptr bp+12]
 	call array_access
 	pop bx
 	
@@ -1380,45 +1155,29 @@ proc change
 	
 	
 	; wall
-		push [word ptr bp+16]
-		push [word ptr bp+14]
+		push [word ptr bp+16] [word ptr bp+14]
 		call array_access
 		pop bx
 		
-		push [word ptr bp+20]
-		push [word ptr bp+14]
-		push di
-		push si
-		push [word ptr bx]
-		push [word ptr bx+2]
+		push [word ptr bp+20] [word ptr bp+14] di si [word ptr bx] [word ptr bx+2]
 		
-		push [word ptr bp+18]
-		push [word ptr bp+14]
+		push [word ptr bp+18] [word ptr bp+14]
 		call array_access
 		call wall
-		pop si
-		pop di
-		pop dx
-		pop ax
+		pop si di dx ax
 		
 	; return final
 		mov [bx], di
 		mov [bx+2], si
 		
-		push [word ptr bp+16]
-		push [word ptr bp+14]
+		push [word ptr bp+16] [word ptr bp+14]
 		call array_access
 		pop bx
 		
 		mov [bx], ax
 		mov [bx+2], dx
 	
-	pop si
-	pop di
-	pop edx
-	pop bx
-	pop eax
-	pop bp
+	pop si di edx bx eax bp
 	ret 20
 endp change
 
@@ -1427,12 +1186,7 @@ endp change
 proc physics_sticks
 	push bp
 	mov bp, sp
-	push eax
-	push bx
-	push ecx
-	push edx
-	push di
-	push si
+	push eax bx ecx edx di si
 	
 	mov cx, [bp+4]
 	physics_sticks_loop:
@@ -1445,21 +1199,18 @@ proc physics_sticks
 		
 		; get both dot's x and y location
 			mov bx, [bp+6]
-			push bx
-			push cx
+			push bx cx
 			call array_access
 			pop bx
 			mov di, [bx]
 			mov si, [bx+2]
 			
 			mov bx, [bp+10]
-			push bx
-			push di
+			push bx di
 			call array_access
 			pop di
 			
-			push bx
-			push si
+			push bx si
 			call array_access
 			pop si
 		
@@ -1492,15 +1243,12 @@ proc physics_sticks
 		; set bx to fpu in memory
 		mov bx, [bp+12]
 		
-		push bx
-		push ax
-		push dx
+		push bx ax dx
 		call distance
 		pop eax
 		
 		; get original stick length
-		push [word ptr bp+8]
-		push cx
+		push [word ptr bp+8] cx
 		call array_access
 		pop bx
 		mov edx, [bx]
@@ -1572,25 +1320,21 @@ proc physics_sticks
 		; -------------------------------
 		
 		locking:
-		push ax
-		push bx
+		push ax bx
 			; get dots in memory
 				mov bx, [bp+6]
-				push bx
-				push cx
+				push bx cx
 				call array_access
 				pop bx
 				mov di, [bx]
 				mov si, [bx+2]
 				
 				mov bx, [bp+10]
-				push bx
-				push di
+				push bx di
 				call array_access
 				pop di
 				
-				push bx
-				push si
+				push bx si
 				call array_access
 				pop si
 			
@@ -1619,19 +1363,12 @@ proc physics_sticks
 				
 				b_not_locked:
 					; stick.pointA.position = Change(stick.pointA.position, stick.pointB.position, offsetX, offsetY)
-					push [word ptr bp+12]
-					push [word ptr bp+16]
-					push [word ptr bp+14]
-					push [word ptr bp+10]
+					push [word ptr bp+12] [word ptr bp+16] [word ptr bp+14] [word ptr bp+10]
 						mov bx, [bp+6]
-						push bx
-						push cx
+						push bx cx
 						call array_access
 						pop bx
-					push [word ptr bx]
-					push [word ptr bx+2]
-					push eax
-					push edx
+					push [word ptr bx] [word ptr bx+2] eax edx
 					call change
 					
 					jmp b_check
@@ -1659,23 +1396,15 @@ proc physics_sticks
 				je b_locked
 					
 					; stick.pointB.position = Change(stick.pointB.position, stick.pointA.position, offsetX, offsetY)
-					push [word ptr bp+12]
-					push [word ptr bp+16]
-					push [word ptr bp+14]
-					push [word ptr bp+10]
+					push [word ptr bp+12] [word ptr bp+16] [word ptr bp+14] [word ptr bp+10]
 						mov bx, [bp+6]
-						push bx
-						push cx
+						push bx cx
 						call array_access
 						pop bx
-					push [word ptr bx+2]
-					push [word ptr bx]
-					push eax
-					push edx
+					push [word ptr bx+2] [word ptr bx] eax edx
 					call change
 			b_locked:
-		pop bx
-		pop ax
+		pop bx ax
 		
 		physics_sticks_dont_change:
 		pop cx
@@ -1685,13 +1414,7 @@ proc physics_sticks
 	jmp physics_sticks_loop
 	
 	physics_sticks_end:
-	pop si
-	pop di
-	pop edx
-	pop ecx
-	pop bx
-	pop eax
-	pop bp
+	pop si di edx ecx bx eax bp
 	ret 16
 endp physics_sticks
 
@@ -1702,29 +1425,16 @@ proc physics
 	mov bp, sp
 	push cx
 	
-	push [word ptr bp+22]
-	push [word ptr bp+20]
-	push [word ptr bp+14]
-	push [word ptr bp+12]
-	push [word ptr bp+10]
-	push [word ptr bp+8]
+	push [word ptr bp+22] [word ptr bp+20] [word ptr bp+14] [word ptr bp+12] [word ptr bp+10] [word ptr bp+8]
 	call physics_dots
 	
 	mov cx, 5
 		physics_loop_sticks:
-		push [word ptr bp+20]
-		push [word ptr bp+14]
-		push [word ptr bp+10]
-		push [word ptr bp+16]
-		push [word ptr bp+12]
-		push [word ptr bp+18]
-		push [word ptr bp+6]
-		push [word ptr bp+4]
+		push [word ptr bp+20] [word ptr bp+14] [word ptr bp+10] [word ptr bp+16] [word ptr bp+12] [word ptr bp+18] [word ptr bp+6] [word ptr bp+4]
 		call physics_sticks
 	loop physics_loop_sticks
 	
-	pop cx
-	pop bp
+	pop cx bp
 	ret 22
 endp physics
 
@@ -1733,10 +1443,7 @@ endp physics
 proc click
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
+	push ax bx cx dx
 	
 	mov bx, [bp+8]
 	mov cx, [bx]
@@ -1756,11 +1463,7 @@ proc click
 	
 	click_end:
 	mov [bp+8], ax
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop dx cx bx ax bp
 	ret 4
 endp click
 
@@ -1769,19 +1472,15 @@ endp click
 proc copy_dots
 	push bp
 	mov bp, sp
-	push bx
-	push cx
-	push di
+	push bx cx di
 	
 	mov cx, [bp+8]
 	dots_prev_copy:
-		push [word ptr bp+6]
-		push cx
+		push [word ptr bp+6] cx
 		call array_access
 		pop di
 		
-		push [word ptr bp+4]
-		push cx
+		push [word ptr bp+4] cx
 		call array_access
 		pop bx
 		
@@ -1796,10 +1495,7 @@ proc copy_dots
 		pop cx
 	loop dots_prev_copy
 	
-	pop di
-	pop cx
-	pop bx
-	pop bp
+	pop di cx bx bp
 	ret 6
 endp copy_dots
 
@@ -1808,16 +1504,13 @@ endp copy_dots
 proc select
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push di
+	push ax bx di
 	
 	mov bx, [bp+4]
 	mov di, [bp+6]
 	mov [bx], di
 	
-	push [word ptr bp+10]
-	push di
+	push [word ptr bp+10] di
 	call array_access
 	pop di
 	
@@ -1830,10 +1523,7 @@ proc select
 	mov [di+4], bx
 	
 	
-	pop di
-	pop bx
-	pop ax
-	pop bp
+	pop di bx ax bp
 	ret 10
 endp select
 
@@ -1842,8 +1532,7 @@ endp select
 proc deselect
 	push bp
 	mov bp, sp
-	push bx
-	push di
+	push bx di
 	
 	push [word ptr bp+8]
 	mov bx, [bp+4]
@@ -1857,9 +1546,7 @@ proc deselect
 	mov bx, [bp+4]
 	mov [word ptr bx], 0
 	
-	pop di
-	pop bx
-	pop bp
+	pop di bx bp
 	ret 6
 endp deselect
 
@@ -1868,12 +1555,7 @@ endp deselect
 proc button
 	push bp
 	mov bp, sp
-	push ax
-	push bx
-	push cx
-	push dx
-	push di
-	push si
+	push ax bx cx dx di si
 	
 	; set default value
 	mov cx, 0
@@ -1904,13 +1586,7 @@ proc button
 	button_exit:
 	mov [bp+8], cx
 	
-	pop si
-	pop di
-	pop dx
-	pop cx
-	pop bx
-	pop ax
-	pop bp
+	pop si di dx cx bx ax bp
 	ret 4
 endp button
 
@@ -1979,8 +1655,7 @@ start:
 				jne screens_wait
 				
 				screen_title_start:
-					push cx
-					push dx
+					push cx dx
 					mov bx, offset title_start
 					push bx
 					call button
@@ -2000,8 +1675,7 @@ start:
 						jmp sandbox
 				
 				screen_title_how:
-					push cx
-					push dx
+					push cx dx
 					mov bx, offset title_how
 					push bx
 					call button
@@ -2013,8 +1687,7 @@ start:
 						jmp screens
 				
 				screen_title_exit:
-					push cx
-					push dx
+					push cx dx
 					mov bx, offset title_exit
 					push bx
 					call button
@@ -2054,8 +1727,7 @@ start:
 				cmp ax, 1
 				jne screens_wait
 				
-				push cx
-				push dx
+				push cx dx
 				mov bx, offset how2_menu
 				push bx
 				call button
@@ -2100,8 +1772,7 @@ start:
 			int 33h
 			
 			; add dot to dots array
-			push cx
-			push dx
+			push cx dx
 			push [dot_color]
 			mov bx, offset dots
 			push bx
@@ -2130,9 +1801,7 @@ start:
 			mov bx, offset dot_size
 			push [word ptr bx]
 			mov bx, offset dots
-			push bx
-			push cx
-			push dx
+			push bx cx dx
 			call search_dots_by_position
 			pop di
 			
@@ -2426,6 +2095,7 @@ END start
 ; jittering
 ; add default computer palette
 ; fix 0 dots selection
+; big dots display at top when at bottom
 
 ; SCREENS
 ; end screen
