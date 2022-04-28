@@ -165,6 +165,19 @@ proc palette
 		add si, 4
 	loop palette_loop
 	
+	; insert last color
+	mov dx, 3C8h
+	mov al, 0fh
+	out dx, al
+	inc dx
+	mov al, 63
+	out dx, al
+	out dx, al
+	out dx, al
+	
+	; change mouse color
+	
+	
 	pop si dx cx ax bp
 	ret 2
 endp palette
@@ -2145,7 +2158,6 @@ END start
 
 ; BUGS
 ; jittering
-; mouse color adding palettes
 
 ; SCREENS
 ; end screen
