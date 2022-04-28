@@ -2165,4 +2165,3 @@ END start
 
 ; OPTIONAL
 ; add decimal point values
-; add templates
