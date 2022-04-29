@@ -29,6 +29,32 @@ right dw 0
 right_prev dw 0
 fpu dd ?
 default_palette db 256*4 dup (0)
+
+; button handling
+button_not_pressed dw 0EBh
+button_pressed dw 052h
+button_nuclear_state dw 0
+button_big_state dw 0
+button_inverse_state dw 0
+button_multi_state dw 0
+button_color1_state dw 1
+button_color2_state dw 0
+button_color3_state dw 0
+
+; button selected center, button selected size
+button_nuclear dw 18, 55, 9
+button_big dw 18, 85, 9
+button_inverse dw 18, 115, 9
+button_multi dw 18, 145, 9
+button_color1 dw 206, 81, 4
+button_color2 dw 206, 108, 4
+button_color3 dw 206, 134, 4
+
+; colors
+dot_color dw 12
+selected_color dw 29
+locked_color dw 79
+stick_color dw 231
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -45,6 +71,7 @@ file_line db 320 dup (0)
 file_title db 'pe_title.bmp', 0
 file_how1 db 'pe_how1.bmp', 0
 file_how2 db 'pe_how2.bmp', 0
+file_settings db 'pe_opt.bmp', 0
 
 ; button borders
 ; x1, y1, x2, y2
@@ -52,6 +79,15 @@ title_start dw 112, 64, 206, 97
 title_how dw 57, 102, 262, 134
 title_exit dw 110, 141, 208, 169
 how2_menu dw 85, 173, 233, 196
+settings_exit dw 5, 179, 57, 194
+settings_start dw 263, 177, 313, 194
+settings_nuclear dw 6, 42, 30, 66
+settings_big dw 6, 72, 30, 96
+settings_inverse dw 6, 102, 30, 126
+settings_multi dw 6, 132, 30, 156
+settings_color1 dw 199, 73, 213, 87
+settings_color2 dw 199, 100, 213, 114
+settings_color3 dw 199, 126, 213, 140
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -65,10 +101,11 @@ dot_size dw 1
 search_sens dw 2
 
 ; colors
-dot_color dw 12
-selected_color dw 29
-locked_color dw 90
-stick_color dw 231
+current_color dw 1
+color_1 dw 9, 43, 98, 6
+color_2 dw 49, 53, 34, 41
+color_3 dw 12, 29, 79, 231
+; dot color, selected color, locked color, stick color
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -378,6 +415,81 @@ proc array_access
 	pop cx ax bp
 	ret 2
 endp array_access
+
+; input: first button state in memory, first button data in memory, second button state in memory, second button data in memory, button no pressed color in memory
+; output: none
+proc button_color_reset
+	push bp
+	mov bp, sp
+	push bx
+	
+	mov bx, [bp+12]
+	mov [bx], 0
+	mov bx, [bp+10]
+	push bx
+	mov bx, [bp+4]
+	push [word ptr bx]
+	call display_square_button
+	
+	mov bx, [bp+8]
+	mov [bx], 0
+	mov bx, [bp+6]
+	push bx
+	mov bx, [bp+4]
+	push [word ptr bx]
+	call display_square_button
+	
+	pop bx bp
+	ret 10
+endp button_color_reset
+; input: button data in memory, color
+; output: none
+proc display_square_button
+	push bp
+	mov bp, sp
+	push ax bx cx dx si
+	
+	; hide mouse
+	mov ax, 2
+	int 33h
+	
+	; get data
+	mov bx, [bp+6]
+	
+	; find top-left corner
+	mov ax, [bx]
+	mov dx, [bx+2]
+	sub ax, [bx+4]
+	sub dx, [bx+4]
+	
+	mov si, [bp+4]
+	mov cx, [bx+4]
+	shl cx, 1
+	inc cx
+	button_column:
+		push ax cx
+		
+		mov cx, [bx+4]
+		shl cx, 1
+		inc cx
+		button_row:
+			push ax dx si
+			call draw_dot
+			
+			inc ax
+		loop button_row
+		
+		pop cx ax
+	inc dx
+	loop button_column
+	
+	; show mouse
+	mov ax, 1
+	int 33h
+	
+	pop si dx cx bx ax bp
+	ret 4
+endp display_square_button
 
 ; input: dots start, dot position in array, size of square
 ; output: none
@@ -894,11 +1006,13 @@ proc wall
 	wall_x_right:
 		mov cx, 320
 		sub cx, [bp+18]
+		sub cx, 1
 		cmp ax, cx
 		jbe wall_y_up
 		
 		mov ax, 320
 		sub ax, [bp+18]
+		sub ax, 1
 		mov cx, ax
 		sub cx, [bx]
 		add di, cx
@@ -914,11 +1028,13 @@ proc wall
 	wall_y_down:
 		mov cx, 200
 		sub cx, [bp+18]
+		sub cx, 1
 		cmp dx, cx
 		jbe wall_exit
 		
 		mov dx, 200
 		sub dx, [bp+18]
+		sub dx, 1
 		mov cx, dx
 		sub cx, [bx+2]
 		add si, cx
@@ -1640,6 +1756,17 @@ proc button
 	ret 4
 endp button
 
+; input: none
+; output: none
+proc escape
+	mov ax, 2
+	int 10h
+	mov ax, 4c00h
+	int 21h
+	
+	ret
+endp escape
+
 start:
 	mov ax, @data
 	mov ds, ax
@@ -1658,9 +1785,9 @@ start:
 		int 33h
 	
 	; save computer palette
-	mov bx, offset default_palette
-	push bx
-	call read_palette
+		mov bx, offset default_palette
+		push bx
+		call read_palette
 	
 	; openning screens
 	mov [current_file], offset file_title
@@ -1692,10 +1819,7 @@ start:
 			int 16h
 			cmp al, 27
 			jne screen_title
-				mov ax, 2
-				int 10h
-				mov ax, 4c00h
-				int 21h			
+				call escape	
 			
 			screen_title:
 			cmp [current_file], offset file_title
@@ -1718,7 +1842,8 @@ start:
 					
 					cmp bx, 1
 					jne screen_title_how
-					jmp sandbox_setup
+					mov [current_file], offset file_settings
+					jmp settings
 				
 				screen_title_how:
 					push cx dx
@@ -1741,10 +1866,7 @@ start:
 					
 					cmp bx, 1
 					jne screens_wait
-						mov ax, 2
-						int 10h
-						mov ax, 4c00h
-						int 21h
+						call escape
 				
 			screen_how1:
 			cmp [current_file], offset file_how1
@@ -1786,6 +1908,281 @@ start:
 
 		jmp screens_wait
 	
+	settings:
+		; hide mouse
+		mov ax, 2
+		int 33h
+		
+		; display settings screen
+		mov bx, offset current_file
+		push [word ptr bx]
+		mov bx, offset file_header
+		push bx
+		mov bx, offset file_palette
+		push bx
+		mov bx, offset file_line
+		push bx
+		call display_bmp
+		
+		; select first color palette
+		mov [button_color1_state], 1
+		mov bx, offset button_color1
+		push bx
+		push [word ptr button_pressed]
+		call display_square_button
+		
+		; show mouse
+		mov ax, 1
+		int 33h
+		
+		settings_wait:
+			; check for escape
+			mov ax, 100h
+			int 16h
+			jz settings_mouse
+			mov ax, 0
+			int 16h
+			cmp al, 27
+			jne settings_mouse
+				call escape
+			
+			; check mouse
+			settings_mouse:
+				mov ax, 3
+				int 33h
+				sar cx, 1
+				mov ax, bx
+				and ax, 1b
+				mov bx, offset left
+				push bx
+				mov bx, offset left_prev
+				push bx ax
+				call click
+				pop bx
+				cmp bx, 1
+				jne settings_wait
+			
+			settings_wait_exit:
+				push cx dx
+				mov bx, offset settings_exit
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_start
+					call escape
+			
+			settings_wait_start:
+				push cx dx
+				mov bx, offset settings_start
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_nuclear
+					jmp sandbox_setup
+			
+			settings_wait_nuclear:
+				push cx dx
+				mov bx, offset settings_nuclear
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_big
+					cmp [button_nuclear_state], 1
+					je settings_wait_nuclear_on
+						mov [button_nuclear_state], 1
+						mov bx, offset button_nuclear
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+					jmp settings_wait
+					settings_wait_nuclear_on:
+						mov [button_nuclear_state], 0
+						mov bx, offset button_nuclear
+						push bx
+						push [word ptr button_not_pressed]
+						call display_square_button
+					jmp settings_wait
+			
+			settings_wait_big:
+				push cx dx
+				mov bx, offset settings_big
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_inverse
+					cmp [button_big_state], 1
+					je settings_wait_big_on
+						mov [button_big_state], 1
+						mov bx, offset button_big
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+					jmp settings_wait
+					settings_wait_big_on:
+						mov [button_big_state], 0
+						mov bx, offset button_big
+						push bx
+						push [word ptr button_not_pressed]
+						call display_square_button
+					jmp settings_wait
+			
+			settings_wait_inverse:
+				push cx dx
+				mov bx, offset settings_inverse
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_multi
+					cmp [button_inverse_state], 1
+					je settings_wait_inverse_on
+						mov [button_inverse_state], 1
+						mov bx, offset button_inverse
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+					jmp settings_wait
+					settings_wait_inverse_on:
+						mov [button_inverse_state], 0
+						mov bx, offset button_inverse
+						push bx
+						push [word ptr button_not_pressed]
+						call display_square_button
+					jmp settings_wait
+			
+			settings_wait_multi:
+				push cx dx
+				mov bx, offset settings_multi
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_color1
+					cmp [button_multi_state], 1
+					je settings_wait_multi_on
+						mov [button_multi_state], 1
+						mov bx, offset button_multi
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+					jmp settings_wait
+					settings_wait_multi_on:
+						mov [button_multi_state], 0
+						mov bx, offset button_multi
+						push bx
+						push [word ptr button_not_pressed]
+						call display_square_button
+					jmp settings_wait
+			
+			settings_wait_color1:
+				push cx dx
+				mov bx, offset settings_color1
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_color2
+					cmp [button_color1_state], 1
+					je settings_wait
+						; deselect all color buttons
+						mov bx, offset button_color2_state
+						push bx
+						mov bx, offset button_color2
+						push bx
+						mov bx, offset button_color3_state
+						push bx
+						mov bx, offset button_color3
+						push bx
+						mov bx, offset button_not_pressed
+						push bx
+						call button_color_reset
+						
+						mov [button_color1_state], 1
+						mov bx, offset button_color1
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+						
+						mov [word ptr current_color], 1
+					jmp settings_wait
+			
+			settings_wait_color2:
+				push cx dx
+				mov bx, offset settings_color2
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait_color3
+					cmp [button_color2_state], 1
+					je settings_wait
+						; deselect all color buttons
+						mov bx, offset button_color1_state
+						push bx
+						mov bx, offset button_color1
+						push bx
+						mov bx, offset button_color3_state
+						push bx
+						mov bx, offset button_color3
+						push bx
+						mov bx, offset button_not_pressed
+						push bx
+						call button_color_reset
+						
+						mov [button_color2_state], 1
+						mov bx, offset button_color2
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+						
+						mov [word ptr current_color], 2
+					jmp settings_wait
+			
+			settings_wait_color3:
+				push cx dx
+				mov bx, offset settings_color3
+				push bx
+				call button
+				pop bx
+				
+				cmp bx, 1
+				jne settings_wait
+					cmp [button_color3_state], 1
+					je settings_wait
+						; deselect all color buttons
+						mov bx, offset button_color1_state
+						push bx
+						mov bx, offset button_color1
+						push bx
+						mov bx, offset button_color2_state
+						push bx
+						mov bx, offset button_color2
+						push bx
+						mov bx, offset button_not_pressed
+						push bx
+						call button_color_reset
+						
+						mov [button_color3_state], 1
+						mov bx, offset button_color3
+						push bx
+						push [word ptr button_pressed]
+						call display_square_button
+						
+						mov [word ptr current_color], 3
+					jmp settings_wait
+	
 	sandbox_setup:
 		; hide mouse
 		mov ax, 2
@@ -1802,6 +2199,45 @@ start:
 		push bx
 		call palette
 		
+		; reset mouse
+		mov [word ptr left], 1
+		mov [word ptr left_prev], 1
+		
+		; load data from setting screen
+			setup_check_nuclear:
+			cmp [button_nuclear_state], 1
+			jne setup_check_big
+				mov nuclear, 1
+			
+			setup_check_big:
+			cmp [button_big_state], 1
+			jne setup_check_inverse
+				mov dot_size, 5
+			
+			setup_check_inverse:
+			cmp [button_inverse_state], 1
+			jne setup_check_multi
+				mov gravity, -1
+			
+			setup_check_multi:
+			cmp [button_multi_state], 1
+			jne setup_check_colors
+				shl gravity, 3
+			
+			setup_check_colors:
+				mov bx, offset dot_color
+				mov di, [current_color]
+				dec di
+				shl di, 3
+				add di, offset color_1
+				
+				mov cx, 4
+				setup_check_colors_loop:
+				mov ax, [di]
+				mov [bx], ax
+				add bx, 2
+				add di, 2
+				loop setup_check_colors_loop
 	
 	; sandbox loop
 	sandbox:
@@ -1958,10 +2394,7 @@ start:
 				
 				cmp al, 27
 				jne sandbox_no_escape
-					mov ax, 2
-					int 10h
-					mov ax, 4c00h
-					int 21h
+					call escape
 				sandbox_no_escape:
 				cmp al, 13
 				je keyboard_enter
@@ -2161,7 +2594,6 @@ END start
 
 ; SCREENS
 ; end screen
-; control panel
 
 ; OPTIONAL
 ; add decimal point values
