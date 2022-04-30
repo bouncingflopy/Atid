@@ -72,6 +72,7 @@ file_title db 'pe_title.bmp', 0
 file_how1 db 'pe_how1.bmp', 0
 file_how2 db 'pe_how2.bmp', 0
 file_settings db 'pe_opt.bmp', 0
+file_end db 'pe_end.bmp', 0
 
 ; button borders
 ; x1, y1, x2, y2
@@ -111,6 +112,7 @@ color_3 dw 12, 29, 79, 231
 
 CODESEG
 
+; open a bmp
 ; input: file name in memory
 ; output: file handle
 proc bmp_open
@@ -130,6 +132,7 @@ proc bmp_open
 	ret
 endp bmp_open
 
+; read bmp header
 ; input: file handle, file header in memory
 ; output: file handle
 proc bmp_header
@@ -148,6 +151,7 @@ proc bmp_header
 	ret 2
 endp bmp_header
 
+; read bmp palette
 ; input: file handle, file palette in memory
 ; output: file handle
 proc bmp_palette
@@ -166,6 +170,7 @@ proc bmp_palette
 	ret 2
 endp bmp_palette
 
+; display palette from memory
 ; input: file palette in memory
 ; output: none
 proc palette
@@ -219,6 +224,7 @@ proc palette
 	ret 2
 endp palette
 
+; read computer's default palette
 ; input: palette storage in memory
 ; output: none
 proc read_palette
@@ -260,6 +266,7 @@ proc read_palette
 	ret 2
 endp read_palette
 
+; display bitmap from bmp
 ; input: file handle, file line in memory
 ; output: file handle
 proc bmp_bitmap
@@ -297,6 +304,7 @@ proc bmp_bitmap
 	ret 2
 endp bmp_bitmap
 
+; close opened bmp file
 ; input: file handle
 ; output: none
 proc bmp_close
@@ -313,6 +321,7 @@ proc bmp_close
 	ret 2
 endp bmp_close
 
+; display a bmp file
 ; input: file name in memory, file header in memory, file palette in memory, file line in memory
 ; output: none
 proc display_bmp
@@ -335,6 +344,7 @@ proc display_bmp
 	ret 8
 endp display_bmp
 
+; delay
 ; input: none
 ; output: none
 proc delay
@@ -355,6 +365,7 @@ proc delay
 	ret
 endp delay
 
+; delay
 ; input: none
 ; output: none
 proc delay_physics
@@ -375,7 +386,9 @@ proc delay_physics
 	ret
 endp delay_physics
 
+; draw a pixel to the screen
 ; input: x position, y position, color
+; output: none
 proc draw_dot
 	push bp
 	mov bp, sp
@@ -400,6 +413,7 @@ proc draw_dot
 	ret 6
 endp draw_dot
 
+; access an array in memory by index
 ; input: array start location, element in array
 ; output: beginning of element data in array
 proc array_access
@@ -419,6 +433,7 @@ proc array_access
 	ret 2
 endp array_access
 
+; reset unselected buttons' color in settings screen
 ; input: first button state in memory, first button data in memory, second button state in memory, second button data in memory, button no pressed color in memory
 ; output: none
 proc button_color_reset
@@ -445,6 +460,8 @@ proc button_color_reset
 	pop bx bp
 	ret 10
 endp button_color_reset
+
+; select and deselect a button in settings screen
 ; input: button data in memory, color
 ; output: none
 proc display_square_button
@@ -494,6 +511,7 @@ proc display_square_button
 	ret 4
 endp display_square_button
 
+; display a square
 ; input: dots start, dot position in array, size of square
 ; output: none
 proc display_square
@@ -551,7 +569,7 @@ proc display_square
 	ret 6
 endp display_square
 
-; the naive line drawing algorithem, can be fouund in wikipedia
+; the naive line drawing algorithm
 ; input: dx, dy, y or x mode, x1, y1, x2, y2, color
 ; outupt: none
 proc naive_algo
@@ -618,6 +636,7 @@ proc naive_algo
 	ret 16
 endp naive_algo
 
+; set up the inputs for the naive algorithm
 ; input: x1, y1, x2, y2, color
 ; output: none
 proc naive_algo_setup
@@ -726,6 +745,7 @@ proc naive_algo_setup
 	ret 10
 endp naive_algo_setup
 
+; display a line
 ; input: sticks start, stick position in array, dots start
 ; output: none
 proc display_stick
@@ -778,6 +798,7 @@ proc display_stick
 	ret 6
 endp display_stick
 
+; append element to the end of an array
 ; input: new element's first property, new element's second property, new element's color, array start, array amount location in memory
 ; output: output
 proc array_add
@@ -805,6 +826,7 @@ proc array_add
 	ret 10
 endp array_add
 
+; check if mouse is over a dot
 ; input: search sensitivity, dot size, dot array start, x lookup, y lookup
 ; output: start of element in memory; 0 if no element is selected
 proc search_dots_by_position
@@ -873,42 +895,7 @@ proc search_dots_by_position
 	ret 8
 endp search_dots_by_position
 
-; input: prev dots start location in memory, dots start location in memory, dot's element number in array
-; output: 1 - dot changed; 0 - dot didn't change
-proc check_dot_change
-	push bp
-	mov bp, sp
-	push ax bx cx dx di
-	
-	mov ax, 0
-	
-	push [word ptr bp+8] [word ptr bp+4]
-	call array_access
-	pop bx
-	
-	push [word ptr bp+6] [word ptr bp+4]
-	call array_access
-	pop di
-	
-	mov cx, 3
-	check_dot_change_loop:
-		mov dx, [bx]
-		cmp dx, [di]
-		jne dot_changed
-		add bx, 2
-		add di, 2
-	loop check_dot_change_loop
-	jmp check_dot_change_exit
-	
-	dot_changed:
-	mov ax, 1
-	
-	check_dot_change_exit:
-	mov [bp+8], ax
-	pop di dx cx bx ax bp
-	ret 4
-endp check_dot_change
-
+; clear the screen
 ; input: none
 ; output: none
 proc clear
@@ -929,6 +916,7 @@ proc clear
 	ret
 endp clear
 
+; render the dots and sticks from arrays in memory
 ; input: wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount
 ; ouput: none
 proc render
@@ -968,6 +956,7 @@ proc render
 	ret 14
 endp render
 
+; constrain dots to borders
 ; input: dot size, wall dots start in memory, dots element number in memory, point's x, point's y, point's beforeUpdate x, point's beforeUpdate y, prev point's position in memory
 ; output: edited point's x, edited point's y, edited point's beforeUpdate x, edited point's beforeUpdate y
 proc wall
@@ -1055,6 +1044,7 @@ proc wall
 	ret 8
 endp wall
 
+; calculate next frame positions of all dots
 ; input: gravity, locked color, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount
 ; output: none
 proc physics_dots
@@ -1118,6 +1108,7 @@ proc physics_dots
 	ret 14
 endp physics_dots
 
+; multiply a number by itself
 ; input: 16 bit padding, number (16 bit)
 ; output: number squared (32 bit)
 proc msquare
@@ -1136,6 +1127,7 @@ proc msquare
 	ret
 endp msquare
 
+; calculate the square root of a number
 ; input: fpu in memory, number (32 bit)
 ; output: square root of number (32 bit)
 proc msqrt
@@ -1158,6 +1150,7 @@ proc msqrt
 	ret 2
 endp msqrt
 
+; calculate the distance between two points
 ; input: fpu in memory, dx, dy
 ; output: distance (32 bit)
 proc distance
@@ -1195,6 +1188,7 @@ proc distance
 	ret 2
 endp distance
 
+; calculate the starting lengths of all sticks
 ; input: fpu in memory, sticks start in memory, stick amount, dots start in memory, stick length start in memory
 ; output: none
 proc sticks_length_init
@@ -1264,7 +1258,8 @@ proc sticks_length_init
 	ret 10
 endp sticks_length_init
 
-; input: dot size, fpu in memory, wall dots start in memory, prev dots arrat start in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
+; change a dot's position based on stick length change
+; input: dot size, fpu in memory, wall dots start in memory, prev dots array start in memory, dots array start in memory, point A, point B, offset X (32 bit), offset Y (32 bit)
 ; output: none
 proc change
 	push bp
@@ -1353,6 +1348,7 @@ proc change
 	ret 22
 endp change
 
+; calculate next frame positions of all sticks
 ; input: dot size, locked color, wall dots start in memory, prev dots start in memory, fpu in memory, dots start in memory, stick lengths start in memory, sticks start in memory, sticks amount
 ; output: none
 proc physics_sticks
@@ -1590,6 +1586,7 @@ proc physics_sticks
 	ret 18
 endp physics_sticks
 
+; calculate next frame positions
 ; input: dot size, gravity, locked color, stick lengths start in memory, fpu in memory, dots wall start in memory, dots start in memory, previous dots start in memory, dots amount, sticks start in memory, sticks amount
 ; output: none
 proc physics
@@ -1610,6 +1607,7 @@ proc physics
 	ret 24
 endp physics
 
+; check if mouse button's input is valid
 ; input: button's position in memory, previous button's position in memory, new button
 ; output: valid click - 1; non-valid click / no click - 0
 proc click
@@ -1639,6 +1637,7 @@ proc click
 	ret 4
 endp click
 
+; copy dots from dot array to prev_dot array
 ; input: dot amount, dots start in memory, prev dots start in memory
 ; output: none
 proc copy_dots
@@ -1671,6 +1670,7 @@ proc copy_dots
 	ret 6
 endp copy_dots
 
+; select a dot
 ; input: saved color in memory, dots in memory, selected color in memory, new select, select in memory
 ; output: none
 proc select
@@ -1699,6 +1699,7 @@ proc select
 	ret 10
 endp select
 
+; deselect a dot
 ; input: dots in memory, saved color, select in memory
 ; output: none
 proc deselect
@@ -1722,6 +1723,7 @@ proc deselect
 	ret 6
 endp deselect
 
+; check if button is clicked
 ; input: mouse x, mouse y, button border in memory
 ; output: 1 if pressed, 0 if not
 proc button
@@ -1762,6 +1764,7 @@ proc button
 	ret 4
 endp button
 
+; exit the program
 ; input: none
 ; output: none
 proc escape
@@ -2586,6 +2589,24 @@ start:
 		jne simulation
 	
 	end_program:
+	; hide mouse
+	mov ax, 2
+	int 33h
+	
+	mov bx, offset file_end
+	push bx
+	mov bx, offset file_header
+	push bx
+	mov bx, offset file_palette
+	push bx
+	mov bx, offset file_line
+	push bx
+	call display_bmp
+	
+	; wait for key press
+	mov ah, 1
+	int 21h
+	
 	; exit graphic mode
 	mov ax, 2
 	int 10h
@@ -2594,7 +2615,3 @@ exit:
 	mov ax, 4c00h
 	int 21h
 END start
-
-; TODO
-; jittering
-; end screen
