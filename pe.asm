@@ -391,8 +391,11 @@ proc draw_dot
 	
 	; get color and display color
 	mov ax, [bp+4]
+	cmp [byte ptr es:di], al
+	je draw_dot_skip
 	mov [es:di], al
 	
+	draw_dot_skip:
 	pop di dx cx ax bp
 	ret 6
 endp draw_dot
@@ -916,7 +919,10 @@ proc clear
 	mov cx, 320*200
 	clear_loop:
 		mov di, cx
-		mov [es:di], ax
+		cmp [byte ptr es:di], al
+		je clear_loop_skip
+		mov [es:di], al
+		clear_loop_skip:
 	loop clear_loop
 	
 	pop di cx ax
@@ -2383,60 +2389,60 @@ start:
 		
 		; check keyboard input
 		keyboard:
-				; check if a key is pressed
-				mov ax, 100h
-				int 16h
-				jz sandbox_end
-				
-				; if a key is pressed, get pressed key
-				mov ax, 0
-				int 16h
-				
-				cmp al, 27
-				jne sandbox_no_escape
-					call escape
-				sandbox_no_escape:
-				cmp al, 13
-				je keyboard_enter
-				cmp al, ' '
-				je keyboard_space
-				cmp al, 8
-				je keyboard_backspace
+			; check if a key is pressed
+			mov ax, 100h
+			int 16h
+			jz sandbox_end
+			
+			; if a key is pressed, get pressed key
+			mov ax, 0
+			int 16h
+			
+			cmp al, 27
+			jne sandbox_no_escape
+				call escape
+			sandbox_no_escape:
+			cmp al, 13
+			je keyboard_enter
+			cmp al, ' '
+			je keyboard_space
+			cmp al, 8
+			je keyboard_backspace
+			jmp sandbox_end
+			
+			keyboard_enter:
+				mov [mode], 1
 				jmp sandbox_end
+			
+			keyboard_space:
+				cmp [word ptr selected], 0
+				je sandbox_end
+				xor [word ptr stick_handle], 1
+				jmp sandbox_end
+			
+			keyboard_backspace:
+				cmp [word ptr selected], 0
+				je sandbox_end
 				
-				keyboard_enter:
-					mov [mode], 1
+				mov di, [word ptr selected]
+				mov bx, offset dots
+				push bx
+				push di
+				call array_access
+				pop di
+				
+				mov dx, [locked_color]
+				cmp [di+4], dx
+				je keyboard_backspace_deselect
+					mov [di+4], dx
+					mov [word ptr selected], 0
 					jmp sandbox_end
-				
-				keyboard_space:
-					cmp [word ptr selected], 0
-					je sandbox_end
-					xor [word ptr stick_handle], 1
+				keyboard_backspace_deselect:
+					mov dx, [dot_color]
+					mov [di+4], dx
+					mov [word ptr selected], 0
 					jmp sandbox_end
-				
-				keyboard_backspace:
-					cmp [word ptr selected], 0
-					je sandbox_end
-					
-					mov di, [word ptr selected]
-					mov bx, offset dots
-					push bx
-					push di
-					call array_access
-					pop di
-					
-					mov dx, [locked_color]
-					cmp [di+4], dx
-					je keyboard_backspace_deselect
-						mov [di+4], dx
-						mov [word ptr selected], 0
-						jmp sandbox_end
-					keyboard_backspace_deselect:
-						mov dx, [dot_color]
-						mov [di+4], dx
-						mov [word ptr selected], 0
-						jmp sandbox_end
-		
+	
 		sandbox_end:
 		
 		; clear
@@ -2466,6 +2472,8 @@ start:
 		; reshow mouse
 		mov ax, 1
 		int 33h
+		
+		call delay
 		
 		; check mode
 		mov bx, offset mode
@@ -2588,12 +2596,5 @@ exit:
 END start
 
 ; TODO
-
-; BUGS
 ; jittering
-
-; SCREENS
 ; end screen
-
-; OPTIONAL
-; add decimal point values
