@@ -12,6 +12,7 @@ dot_amount dw 0
 dots dw 100h dup (?, ?, ?), 321
 dots_prev dw 100h dup (?, ?, ?), 321
 dots_wall_prev dw 100h dup (?, ?, ?), 321
+real dw 100h dup (?, ?, ?), 321
 
 ; the sticks array is sorted in the following order: first dot, second dot, color
 stick_amount dw 0
@@ -442,7 +443,7 @@ proc button_color_reset
 	push bx
 	
 	mov bx, [bp+12]
-	mov [bx], 0
+	mov [word ptr bx], 0
 	mov bx, [bp+10]
 	push bx
 	mov bx, [bp+4]
@@ -450,7 +451,7 @@ proc button_color_reset
 	call display_square_button
 	
 	mov bx, [bp+8]
-	mov [bx], 0
+	mov [word ptr bx], 0
 	mov bx, [bp+6]
 	push bx
 	mov bx, [bp+4]
@@ -512,7 +513,7 @@ proc display_square_button
 endp display_square_button
 
 ; display a square
-; input: dots start, dot position in array, size of square
+; input: blackout, dots start, dot position in array, size of square
 ; output: none
 proc display_square
 	push bp
@@ -543,7 +544,13 @@ proc display_square
 	sub ax, [bp+4]
 	sub dx, [bp+4]
 	
-	mov bx, [bx+4]
+	mov cx, [bp+10]
+	cmp cx, 0
+	je square_skip_color_read
+	mov cx, [bx+4]
+	square_skip_color_read:
+	mov bx, cx
+	
 	mov cx, [bp+4]
 	shl cx, 1
 	inc cx
@@ -566,7 +573,7 @@ proc display_square
 	
 	cant_display:
 	pop di dx cx bx ax bp
-	ret 6
+	ret 8
 endp display_square
 
 ; the naive line drawing algorithm
@@ -746,7 +753,7 @@ proc naive_algo_setup
 endp naive_algo_setup
 
 ; display a line
-; input: sticks start, stick position in array, dots start
+; input: blackout, sticks start, stick position in array, dots start
 ; output: none
 proc display_stick
 	push bp
@@ -780,8 +787,12 @@ proc display_stick
 	pop bx
 	
 	; get stick color
+	mov ax, [bp+10]
+	cmp ax, 0
+	je stick_skip_color_read
 	add bx, 2
 	mov ax, [bx]
+	stick_skip_color_read:
 	
 	; ------------
 	; cx - Ax
@@ -795,7 +806,7 @@ proc display_stick
 	call naive_algo_setup
 	
 	pop si di dx cx bx ax bp
-	ret 6
+	ret 8
 endp display_stick
 
 ; append element to the end of an array
@@ -916,24 +927,203 @@ proc clear
 	ret
 endp clear
 
+; input: dots in memory, prev dots in memory, dot number in array
+; output: cahnge or no change
+proc check_change_dot
+	push bp
+	mov bp, sp
+	push ax bx cx dx si di
+	
+	mov cx, 0
+	
+	push [word ptr bp+8] [word ptr bp+4]
+	call array_access
+	pop si
+	
+	push [word ptr bp+6] [word ptr bp+4]
+	call array_access
+	pop di
+	
+	mov ax, [si]
+	mov dx, [di]
+	cmp ax, dx
+	jne check_dot_changed
+	mov ax, [si+2]
+	mov dx, [di+2]
+	cmp ax, dx
+	jne check_dot_changed
+	mov ax, [si+4]
+	mov dx, [di+4]
+	cmp ax, dx
+	jne check_dot_changed
+	jmp check_dots_not_changed
+	
+	check_dot_changed:
+	mov cx, 1
+	check_dots_not_changed:
+	mov [bp+8], cx
+	
+	pop di si dx cx bx ax bp
+	ret 4
+endp check_change_dot
+
+; input: dots in memory, prev dots in memory, sticks start in memory, dot number in array
+; output: cahnge or no change
+proc check_change_stick
+	push bp
+	mov bp, sp
+	push ax bx cx dx si di
+	
+	mov cx, 0
+	
+	push [word ptr bp+6] [word ptr bp+4]
+	call array_access
+	pop bx
+	
+	push [word ptr bp+10] [word ptr bx]
+	call array_access
+	pop si
+	push [word ptr bp+8] [word ptr bx]
+	call array_access
+	pop di
+	
+	mov ax, [si]
+	mov dx, [di]
+	cmp ax, dx
+	jne check_stick_changed
+	mov ax, [si+2]
+	mov dx, [di+2]
+	cmp ax, dx
+	jne check_stick_changed
+	mov ax, [si+4]
+	mov dx, [di+4]
+	cmp ax, dx
+	jne check_stick_changed
+	
+	push [word ptr bp+10] [word ptr bx+2]
+	call array_access
+	pop si
+	push [word ptr bp+8] [word ptr bx+2]
+	call array_access
+	pop di
+	
+	mov ax, [si]
+	mov dx, [di]
+	cmp ax, dx
+	jne check_stick_changed
+	mov ax, [si+2]
+	mov dx, [di+2]
+	cmp ax, dx
+	jne check_stick_changed
+	mov ax, [si+4]
+	mov dx, [di+4]
+	cmp ax, dx
+	jne check_stick_changed
+	jmp check_stick_not_changed
+	
+	check_stick_changed:
+	mov cx, 1
+	check_stick_not_changed:
+	mov [bp+10], cx
+	
+	pop di si dx cx bx ax bp
+	ret 6
+endp check_change_stick
+
+; input: dots in memory, real in memory, dot amount
+; output: none
+proc copy_real
+	push bp
+	mov bp, sp
+	push bx cx di
+	
+	mov cx, [bp+4]
+	copy_real_loop:
+		push [word ptr bp+8] cx
+		call array_access
+		pop di
+		
+		push [word ptr bp+6] cx
+		call array_access
+		pop bx
+		
+		push cx
+		mov cx, 3
+		copy_real_loop_inner:
+			mov ax, [di]
+			mov [bx], ax
+			add di, 2
+			add bx, 2
+		loop copy_real_loop_inner
+		pop cx
+	loop copy_real_loop
+	
+	pop di cx bx bp
+	ret 6
+endp copy_real
+
 ; render the dots and sticks from arrays in memory
-; input: wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount
+; input: real in memory, nuclear mode, wall dots start in memory, prev dots start in memory, dots start in memory, dots amount, dots size, sticks start in memory, stick amount
 ; ouput: none
 proc render
 	push bp
 	mov bp, sp
 	push bx cx di
 	
+	mov bx, [bp+18]
+	cmp bx, 1
+	je after_clear
+		mov cx, [bp+4]
+		clear_render_sticks:
+			cmp cx, 0
+			je clear_render_sticks_after
+			
+			push [word ptr bp+14] [word ptr bp+12] [word ptr bp+6] cx
+			call check_change_stick
+			pop bx
+			cmp bx, 0
+			je clear_stick_skip
+			
+			mov bx, 0
+			push bx [word ptr bp+6] cx [word ptr bp+20]
+			call display_stick
+			
+			clear_stick_skip:
+			
+			dec cx
+		jmp clear_render_sticks
+		clear_render_sticks_after:
+		
+		mov cx, [bp+10]
+		clear_render_dots:
+			cmp cx, 0
+			je clear_render_dots_after
+			
+			push [word ptr bp+14] [word ptr bp+12] cx
+			call check_change_dot
+			pop bx
+			cmp bx, 0
+			je clear_dot_skip
+			
+			mov bx, 0
+			push bx [word ptr bp+20] cx [word ptr bp+8]
+			call display_square
+			
+			clear_dot_skip:
+			
+			dec cx
+		jmp clear_render_dots
+		clear_render_dots_after:
+	after_clear:
+	
+	
 	mov cx, [bp+4]
 	render_sticks:
 		cmp cx, 0
 		je render_sticks_after
 		
-		push [word ptr bp+6] cx
-		call array_access
-		pop bx
-		
-		push [word ptr bp+6] cx [word ptr bp+12]
+		mov bx, 1
+		push bx [word ptr bp+6] cx [word ptr bp+12]
 		call display_stick
 		
 		dec cx
@@ -945,7 +1135,8 @@ proc render
 		cmp cx, 0
 		je render_dots_after
 		
-		push [word ptr bp+12] cx [word ptr bp+8]
+		mov bx, 1
+		push bx [word ptr bp+12] cx [word ptr bp+8]
 		call display_square
 		
 		dec cx
@@ -953,7 +1144,7 @@ proc render
 	render_dots_after:
 	
 	pop di cx bx bp
-	ret 14
+	ret 18
 endp render
 
 ; constrain dots to borders
@@ -1604,7 +1795,7 @@ proc physics
 	loop physics_loop_sticks
 	
 	pop cx bp
-	ret 24
+	ret 22
 endp physics
 
 ; check if mouse button's input is valid
@@ -2216,22 +2407,22 @@ start:
 			setup_check_nuclear:
 			cmp [button_nuclear_state], 1
 			jne setup_check_big
-				mov nuclear, 1
+				mov [nuclear], 1
 			
 			setup_check_big:
 			cmp [button_big_state], 1
 			jne setup_check_inverse
-				mov dot_size, 5
+				mov [dot_size], 5
 			
 			setup_check_inverse:
 			cmp [button_inverse_state], 1
 			jne setup_check_multi
-				mov gravity, -1
+				mov [gravity], -1
 			
 			setup_check_multi:
 			cmp [button_multi_state], 1
 			jne setup_check_colors
-				shl gravity, 3
+				shl [gravity], 3
 			
 			setup_check_colors:
 				mov bx, offset dot_color
@@ -2274,10 +2465,6 @@ start:
 			pop bx
 			cmp bx, 1
 			jne sandbox_right
-		
-			; hide mouse
-			mov ax, 2
-			int 33h
 			
 			; add dot to dots array
 			push cx dx
@@ -2448,14 +2635,11 @@ start:
 	
 		sandbox_end:
 		
-		; clear
-		mov bx, 1
-		cmp [nuclear], bx
-		je sandbox_skip_clear
-		call clear
-		sandbox_skip_clear:
-		
 		; render
+		mov bx, offset real
+		push bx
+		mov bx, [nuclear]
+		push bx
 		mov bx, offset dots_wall_prev
 		push bx
 		mov bx, offset dots_prev
@@ -2471,12 +2655,6 @@ start:
 		mov bx, [stick_amount]
 		push bx
 		call render
-		
-		; reshow mouse
-		mov ax, 1
-		int 33h
-		
-		call delay
 		
 		; check mode
 		mov bx, offset mode
@@ -2523,6 +2701,15 @@ start:
 	
 	; simulation loop
 	simulation:
+		; copy real dots positions
+		mov bx, offset dots
+		push bx
+		mov bx, offset real
+		push bx
+		mov bx, [dot_amount]
+		push bx
+		call copy_real
+		
 		; simulation
 		mov bx, offset dot_size
 		push [word ptr bx]
@@ -2548,14 +2735,11 @@ start:
 		push bx
 		call physics
 		
-		; clear screen
-		mov cx, 1
-		cmp [nuclear], cx
-		je simulation_skip_clear
-		call clear
-		simulation_skip_clear:
-		
 		; render
+		mov bx, offset real
+		push bx
+		mov bx, [nuclear]
+		push bx
 		mov bx, offset dots_wall_prev
 		push bx
 		mov bx, offset dots_prev
@@ -2584,7 +2768,9 @@ start:
 		int 16h
 		
 		cmp al, 27
-		je end_program
+		jne simulation_no_end_program
+		call escape
+		simulation_no_end_program:
 		cmp al, 13
 		jne simulation
 	
