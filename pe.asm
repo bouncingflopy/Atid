@@ -90,6 +90,7 @@ settings_multi dw 6, 132, 30, 156
 settings_color1 dw 199, 73, 213, 87
 settings_color2 dw 199, 100, 213, 114
 settings_color3 dw 199, 126, 213, 140
+end_menu dw 85, 150, 233, 173
 ; -------------------------------------------------------------------------------------
 ; -------------------------------------------------------------------------------------
 
@@ -1967,6 +1968,49 @@ proc escape
 	ret
 endp escape
 
+; input: gravity in memory, ending of reset in memory, beginning of second reset in memory, left in memory, left_prev in memory, current_color in memory
+; output: none
+proc reset
+	push bp
+	mov bp, sp
+	push bx cx
+	
+	mov cx, [bp+12]
+	reset_first_loop:
+		sub cx, 2
+		
+		mov bx, cx
+		cmp [word ptr bx], 321
+		je reset_first_loop_skip
+		mov [word ptr bx], 0
+		reset_first_loop_skip:
+		
+		cmp cx, 0
+	jne reset_first_loop
+	
+	mov bx, [bp+10]
+	mov [dword ptr bx], 0
+	add bx, 4
+	mov [dword ptr bx], 0
+	add bx, 4
+	mov [word ptr bx], 1
+	add bx, 2
+	mov [dword ptr bx], 0
+	
+	mov cx, 1
+	mov bx, [bp+14]
+	mov [word ptr bx], cx
+	mov bx, [bp+8]
+	mov [word ptr bx], cx
+	mov bx, [bp+6]
+	mov [word ptr bx], cx
+	mov bx, [bp+4]
+	mov [word ptr bx], cx
+	
+	pop cx bx bp
+	ret 12
+endp reset
+
 start:
 	mov ax, @data
 	mov ds, ax
@@ -1988,6 +2032,22 @@ start:
 		mov bx, offset default_palette
 		push bx
 		call read_palette
+	
+	; reset
+		reset_main:
+		mov bx, offset gravity
+		push bx
+		mov bx, offset default_palette
+		push bx
+		mov bx, offset button_nuclear_state
+		push bx
+		mov bx, offset left
+		push bx
+		mov bx, offset left_prev
+		push bx
+		mov bx, offset current_color
+		push bx
+		call reset
 	
 	; openning screens
 	mov [current_file], offset file_title
@@ -2030,7 +2090,15 @@ start:
 				sar cx, 1
 				mov ax, bx
 				and ax, 1b
-				cmp ax, 1
+				
+				mov bx, offset left
+				push bx
+				mov bx, offset left_prev
+				push bx
+				push ax
+				call click
+				pop bx
+				cmp bx, 1
 				jne screens_wait
 				
 				screen_title_start:
@@ -2402,6 +2470,11 @@ start:
 		; reset mouse
 		mov [word ptr left], 1
 		mov [word ptr left_prev], 1
+		
+		; restore default values which dont get reset in reset
+		mov [nuclear], 0
+		mov [dot_size], 1
+		mov [gravity], 1
 		
 		; load data from setting screen
 			setup_check_nuclear:
@@ -2775,10 +2848,6 @@ start:
 		jne simulation
 	
 	end_program:
-	; hide mouse
-	mov ax, 2
-	int 33h
-	
 	mov bx, offset file_end
 	push bx
 	mov bx, offset file_header
@@ -2789,10 +2858,35 @@ start:
 	push bx
 	call display_bmp
 	
-	; wait for key press
-	mov ah, 1
-	int 21h
+	; show mouse
+	mov ax, 1
+	int 33h
 	
+	end_loop:
+		; check for key press
+		mov ax, 100h
+		int 16h
+		jnz after_end_loop
+		
+		; check for button press
+		mov ax, 3
+		int 33h
+		sar cx, 1
+		mov ax, bx
+		and ax, 1b
+		cmp ax, 1
+		jne end_loop
+			push cx dx
+			mov bx, offset end_menu
+			push bx
+			call button
+			pop bx
+			
+			cmp bx, 1
+			jne end_loop
+				jmp reset_main
+	
+	after_end_loop:
 	; exit graphic mode
 	mov ax, 2
 	int 10h
