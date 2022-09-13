@@ -1,3 +1,4 @@
+package work;
 
 public class Room {
 	private String type;
@@ -42,5 +43,10 @@ public class Room {
 	
 	public void setWidth(double width) {
 		this.width = width;
+	}
+	
+	@Override
+	public String toString() {
+		return "type: " + this.type + ", length: " + this.length + ", width: " + this.width;
 	}
 }
