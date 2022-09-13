@@ -1,3 +1,4 @@
+package work;
 
 public class Address {
 	private String street;
@@ -34,7 +35,8 @@ public class Address {
 		this.city = city;
 	}
 	
-	public String ToString() {
-		return street + " " + number + ", " + city + ".";
+	@Override
+	public String toString() {
+		return street + " " + number + ", " + city;
 	}
 }
