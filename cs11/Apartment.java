@@ -1,3 +1,4 @@
+package work;
 
 public class Apartment {
 	private String ownerName;
@@ -6,7 +7,8 @@ public class Apartment {
 	public Apartment(String ownerName, Room[] rooms) {
 		this.ownerName = ownerName;
 		if (rooms.length <= 10) {
-			for (int i = 0; i < 10; i++) {
+			this.rooms = new Room[rooms.length];
+			for (int i = 0; i < rooms.length; i++) {
 				this.rooms[i] = rooms[i];
 			}
 		} else {
@@ -50,11 +52,21 @@ public class Apartment {
 	
 	public void setRooms(Room[] rooms) {
 		if (rooms.length <= 10) {
-			for (int i = 0; i < 10; i++) {
+			this.rooms = new Room[rooms.length];
+			for (int i = 0; i < rooms.length; i++) {
 				this.rooms[i] = rooms[i];
 			}
 		} else {
 			System.out.println("Invalid amount of rooms.");
 		}
+	}
+	
+	@Override
+	public String toString() {
+		String temp = "";
+		for (int i = 0; i < rooms.length; i++) {
+			temp += rooms[i].toString() + " ";
+		}
+		return "owner: " + this.ownerName + ", rooms: {" + temp + "}";
 	}
 }
