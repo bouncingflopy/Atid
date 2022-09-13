@@ -1,3 +1,4 @@
+package work;
 
 public class Main {
 	public static void maxLarge(Building[] buildings) {
@@ -10,7 +11,7 @@ public class Main {
 		
 		for (int i = 0; i < buildings.length; i++) {
 			if (buildings[i].largeApartments() == max.largeApartments()) {
-				System.out.println(buildings[i].getAddress().ToString());
+				System.out.println(buildings[i].getAddress().toString());
 				Apartment[] apartments = buildings[i].getApartments();
 				for (int j = 0; j < apartments.length; j++) {
 					if (apartments[j].size() == "large") {
@@ -19,10 +20,6 @@ public class Main {
 				}
 			}
 		}
-		
-	}
-	
-	public static void main(String[] args) {
 		
 	}
 }
