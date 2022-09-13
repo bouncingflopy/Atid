@@ -1,3 +1,4 @@
+package work;
 
 public class Building {
 	private Address address;
@@ -5,8 +6,9 @@ public class Building {
 	
 	public Building(Address address, Apartment[] apartments) {
 		this.address = address;
-		if (apartments.length <= 100) {
-			for (int i = 0; i < 100; i++) {
+		if (apartments.length <= apartments.length) {
+			this.apartments = new Apartment[apartments.length];
+			for (int i = 0; i < apartments.length; i++) {
 				this.apartments[i] = apartments[i];
 			}
 		} else {
@@ -39,11 +41,21 @@ public class Building {
 	
 	public void setApartments(Apartment[] apartments) {
 		if (apartments.length <= 100) {
-			for (int i = 0; i < 100; i++) {
+			this.apartments = new Apartment[apartments.length];
+			for (int i = 0; i < apartments.length; i++) {
 				this.apartments[i] = apartments[i];
 			}
 		} else {
 			System.out.println("Invalid amount of apartments");
 		}
+	}
+	
+	@Override
+	public String toString() {
+		String temp = "";
+		for (int i = 0; i < apartments.length; i++) {
+			temp += apartments[i].toString() + " ";
+		}
+		return "address: " + address + ", apartments: {" + temp + "}";
 	}
 }
