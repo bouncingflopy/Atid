@@ -20,7 +20,7 @@ def function_request(file):
     if file[0] == "calculate-next":
         header = "HTTP/1.1 200 OK\r\n"
         data = str(int(file[1].split("=")[1]) + 1)
-        header += 'Content-Length: ' + str(len(data)) + '\r\n'
+        header += f'Content-Length: {str(len(data))}\r\n'
         header += "Content-Type: text/plain\r\n"
         header += "\r\n"
         response = header.encode() + data.encode()
@@ -60,7 +60,7 @@ s = socket.socket()
 s.bind(('0.0.0.0', 80))
 
 while True:
-    s.listen(2)
+    s.listen()
     cs, ca = s.accept()
     data = cs.recv(1024).decode()
     data = [i.split(" ") for i in data.split("\r\n")]
