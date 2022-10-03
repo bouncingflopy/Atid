@@ -1,7 +1,7 @@
 import socket
 import os
 
-ROOT = "C://Users//216199281//Downloads//webroot//"
+ROOT = "C://Networks//webroot//"
 
 def modify_file(file):
     if file == "" and os.path.isfile(ROOT + "index.html"):
@@ -20,6 +20,14 @@ def function_request(file):
     if file[0] == "calculate-next":
         header = "HTTP/1.1 200 OK\r\n"
         data = str(int(file[1].split("=")[1]) + 1)
+        header += f'Content-Length: {str(len(data))}\r\n'
+        header += "Content-Type: text/plain\r\n"
+        header += "\r\n"
+        response = header.encode() + data.encode()
+    elif file[0] == "calculate-area":
+        header = "HTTP/1.1 200 OK\r\n"
+        data = file[1].split("&")
+        data = str(int(data[0].split("=")[1]) * int(data[1].split("=")[1]) / 2)
         header += f'Content-Length: {str(len(data))}\r\n'
         header += "Content-Type: text/plain\r\n"
         header += "\r\n"
