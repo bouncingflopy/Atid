@@ -1,0 +1,2 @@
+1 www.google.com 216.58.205.196 64
+1 www.mikmak.co.il 213.8.147.218 64
