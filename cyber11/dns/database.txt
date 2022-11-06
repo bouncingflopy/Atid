@@ -1,4 +1,0 @@
-www.google.com. 216.58.205.196 64
-www.mikmak.co.il. 213.8.147.218 64
-mikmak.co.il. 213.8.147.218 64
-www.notion.so. 104.18.7.183 64
