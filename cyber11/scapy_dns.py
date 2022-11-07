@@ -4,7 +4,7 @@ from scapy.layers.inet import UDP, IP
 
 
 def load_data():
-    with open("C://Networks//work//dns//database.txt", 'r') as f:
+    with open("C://Users//Liron//Python//temp//database.txt", 'r') as f:
         lines = f.readlines()
     return lines
 
@@ -24,8 +24,8 @@ def generate_real(r):
 
     dnsr[IP].src = r[IP].dst
     dnsr[IP].dst = r[IP].src
-    dnsr[UDP].sport = 53
-    dnsr[UDP].dport = 53
+    dnsr[UDP].sport = r[UDP].dport
+    dnsr[UDP].pport = r[UDP].sport
 
     return dnsr[IP]
 
@@ -40,17 +40,17 @@ def generate(r):
     if data is None:
         p = generate_real(r)
         if p[DNS].ancount == 0:
-            p = IP(dst=r[IP].src) / UDP(dport=53) / DNS(id=r[DNS].id, qr=1, ra=1, rcode=3, qd=r[DNSQR])
+            p = IP(dst=r[IP].src) / UDP(dport=r[UDP].sport, sport=r[UDP].dport) / DNS(id=r[DNS].id, qr=1, ra=1, rcode=3, qd=r[DNSQR])
         else:
-            with open("C://Networks//work//dns//database.txt", 'a') as f:
+            with open("C://Users//Liron//Python//temp//database.txt", 'a') as f:
                 f.write(f'{p[DNSQR].qname.decode()} {p[DNS].an[p[DNS].ancount - 1].rdata} {p[DNSRR].ttl}\n')
 
-        return p
+        return p[IP]
 
-    p = IP(dst=r[IP].src, ttl=int(data[2])) / UDP(dport=53) / DNS(id=r[DNS].id, qr=1, ra=1, ancount=1, qd=r[DNSQR])
+    p = IP(dst=r[IP].src) / UDP(dport=r[UDP].sport, sport=r[UDP].dport) / DNS(id=r[DNS].id, qr=1, ra=1, ancount=1, qd=r[DNSQR])
     p.an = DNSRR(rrname=r[DNSQR].qname, type=r[DNSQR].qtype, ttl=int(data[2]), rdlen=4 if r[DNSQR].qtype == 1 else len(data[0]) + 1, rdata=data[1] if r[DNSQR].qtype == 1 else data[0])
 
-    return p
+    return p[IP]
 
 
 def main():
