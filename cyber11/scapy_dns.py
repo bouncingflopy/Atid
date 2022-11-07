@@ -25,7 +25,7 @@ def generate_real(r):
     dnsr[IP].src = r[IP].dst
     dnsr[IP].dst = r[IP].src
     dnsr[UDP].sport = r[UDP].dport
-    dnsr[UDP].pport = r[UDP].sport
+    dnsr[UDP].dport = r[UDP].sport
 
     return dnsr[IP]
 
